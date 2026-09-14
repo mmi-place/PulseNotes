@@ -28,6 +28,8 @@ PulseNotes est une interface alternative pour consulter les résultats universit
 
 Le navigateur ne contacte jamais directement CAS ou Bulletins UVSQ. Toutes les connexions passent par un proxy PHP côté serveur, ce qui permet de proposer deux usages propres: un service global partagé et une installation personnelle auto-hébergée.
 
+Le service global expose aussi l’installateur personnel via `https://pulsenotes.mmi.place/install.sh`, utilisable depuis le Terminal cPanel o2switch.
+
 ## Accès et éditions
 
 | Besoin | Edition recommandée | Lien ou paquet | Stockage |
@@ -51,7 +53,7 @@ Les deux éditions partagent le même frontend React et le même coeur PHP. Leur
 - détection des notes nouvelles ou modifiées;
 - analyses par UE, module et période;
 - bulletins officiels et exports PDF PulseNotes;
-- liens publics révocables pour présenter une note unique;
+- liens publics révocables pour présenter une note unique en installation personnelle;
 - navigation clavier, accessibilité et interface mobile dédiée.
 
 ## Démarrage local

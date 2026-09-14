@@ -37,7 +37,7 @@ Dans la base globale, ces états restent dans le bloc chiffré de l’évaluatio
 
 ## Partages publics
 
-Chaque partage utilise un jeton aléatoire de 32 octets. Le serveur vérifie que l’évaluation correspond à la dernière synchronisation avant de créer l’instantané.
+Chaque partage d’une installation personnelle utilise un jeton aléatoire de 32 octets. Le serveur vérifie que l’évaluation correspond à la dernière synchronisation avant de créer l’instantané. Les routes de partage sont désactivées en mode global.
 
 Le lien :
 
@@ -50,7 +50,7 @@ Les métadonnées sociales et la carte SVG sont générées depuis ce même inst
 
 ## Rétention
 
-Les états et partages d’un utilisateur global sont supprimés après 180 jours sans synchronisation. Les sessions expirent plus rapidement selon leur propre durée de vie.
+Les états d’un utilisateur global sont supprimés après 180 jours sans synchronisation. Les partages sont réservés aux installations personnelles. Les sessions expirent plus rapidement selon leur propre durée de vie.
 
 Pour 300 utilisateurs, 6 semestres et 80 notes par semestre, les 144 000 enregistrements représentent environ 53 à 103 Mo selon la base et ses index. Une réserve initiale de 150 Mo est raisonnable avant mesure réelle.
 

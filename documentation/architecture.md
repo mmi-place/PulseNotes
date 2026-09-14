@@ -26,8 +26,9 @@ Le routeur `php/router.php` gère :
 - les requêtes autorisées vers Bulletins ;
 - le cache court des distributions ;
 - l’état `new`, `modified` ou `seen` des évaluations ;
-- les sessions et les liens publics ;
+- les sessions et les liens publics des installations personnelles ;
 - le téléchargement des documents officiels.
+- la route courte `/install.sh` du service global, qui relaie l’installateur personnel.
 
 ### Stockage
 
