@@ -10,3 +10,4 @@ old/
 .playwright-cli/
 src/.playwright-cli/
 php/data/
+.dev/

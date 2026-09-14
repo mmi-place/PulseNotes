@@ -29,8 +29,11 @@ Les deux éditions partagent le même frontend et le même cœur PHP. Leur point
 Prérequis : Node.js 20.19 ou supérieur, npm, WSL et PHP 8.1 ou supérieur.
 
 ```bat
-rundev.bat
+rundev-global.bat
+rundev-individuel.bat
 ```
+
+Le premier démarre automatiquement Docker et le conteneur MySQL dédié. Le second utilise uniquement SQLite. `rundev.bat` affiche un menu permettant de choisir l’un des deux modes.
 
 | Service | Adresse |
 | --- | --- |

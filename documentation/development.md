@@ -18,10 +18,57 @@ cd ..
 ## Lancement local
 
 ```bat
-rundev.bat
+rundev-global.bat
+rundev-individuel.bat
 ```
 
-Le script lance Vite sur `http://localhost:5173` et l’API PHP sur `http://127.0.0.1:8787`.
+Les deux scripts lancent Vite sur `http://localhost:5173` et l’API PHP sur `http://127.0.0.1:8787`.
+
+- `rundev-global.bat` prépare et démarre le conteneur MySQL dédié, puis force le mode global ;
+- `rundev-individuel.bat` force le mode personnel et écrit dans `php/data/pulsenotes.sqlite`, même si MySQL est installé ;
+- `rundev.bat` propose un menu `Global` ou `Individuel`.
+
+## MySQL global en un clic
+
+Prérequis : Docker Desktop démarré et accessible depuis Windows.
+
+```bat
+install-dev-db.bat
+```
+
+Le script :
+
+1. génère des secrets aléatoires dans `.dev/mysql.env` ;
+2. télécharge l’image officielle MySQL 8.4 ;
+3. démarre `pulsenotes-mysql-dev` sur `127.0.0.1:3307` ;
+4. crée la base et l’utilisateur PulseNotes ;
+5. attend que MySQL soit prêt.
+
+`rundev-global.bat` appelle automatiquement cette installation au premier lancement, puis redémarre le même conteneur aux lancements suivants. Il n’est donc pas nécessaire d’exécuter `install-dev-db.bat` séparément, sauf pour préparer la base à l’avance.
+
+La configuration est locale et ignorée par Git :
+
+```dotenv
+MYSQL_IMAGE=mysql:8.4
+MYSQL_PORT=3307
+MYSQL_DATABASE=pulsenotes
+MYSQL_USER=pulsenotes
+MYSQL_PASSWORD=...
+MYSQL_ROOT_PASSWORD=...
+PULSENOTES_APP_KEY=...
+```
+
+Les identifiants peuvent être choisis avant la première création en préparant `.dev/mysql.env`. Une fois le volume initialisé, modifier les mots de passe dans ce fichier ne modifie pas automatiquement les comptes déjà créés dans MySQL.
+
+Commandes utiles :
+
+```bat
+docker compose --env-file .dev/mysql.env -f docker-compose.dev.yml stop
+docker compose --env-file .dev/mysql.env -f docker-compose.dev.yml start
+docker compose --env-file .dev/mysql.env -f docker-compose.dev.yml logs mysql
+```
+
+Les données restent dans le volume Docker `pulsenotes-dev_pulsenotes_mysql_data` entre deux démarrages.
 
 Le jeu de démonstration ne nécessite pas de compte :
 
@@ -62,11 +109,16 @@ Les sorties de développement (`src/dist`, `output`, `php/data` et `.playwright-
 
 ```text
 PulseNotes/
+├── .dev/            Secrets MySQL locaux, ignorés par Git
 ├── deploy/          Points d’entrée propres à chaque édition
 ├── documentation/   Documentation maintenue
 ├── installer/       Installateur personnel o2switch
 ├── php/             Proxy, authentification et persistance
-├── scripts/         Construction des distributions
+├── scripts/         Développement et construction des distributions
+├── docker-compose.dev.yml  Base MySQL locale
+├── install-dev-db.bat      Installation MySQL en un clic
+├── rundev-global.bat       Frontend + API globale + MySQL Docker
+├── rundev-individuel.bat   Frontend + API personnelle SQLite
 └── src/             Application React, tests et génération PDF
 ```
 
