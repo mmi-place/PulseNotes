@@ -760,7 +760,7 @@ function synchronizeEvaluations(array $evaluations): array
         $database->rollBack();
         throw $error;
     }
-    cleanupInactiveUserData($now);
+    if (deploymentMode() === 'global') cleanupInactiveUserData($now);
     return $states;
 }
 
