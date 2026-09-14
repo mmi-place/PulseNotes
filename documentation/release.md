@@ -54,7 +54,7 @@ bash -n deploy/personal/update.sh
 ## Artefacts attendus
 
 ```text
-output/releases/
+output/
 ├── global/                         Dossier global prêt à téléverser
 ├── personal/                       Dossier personnel prêt à téléverser
 ├── install-personal-o2switch.sh    Installateur cPanel

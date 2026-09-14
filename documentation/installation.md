@@ -22,10 +22,10 @@ build-release.bat
 
 Le script crée :
 
-- `output/releases/pulsenotes-global.zip` ;
-- `output/releases/pulsenotes-personal.zip` ;
+- `output/pulsenotes-global.zip` ;
+- `output/pulsenotes-personal.zip` ;
 - un fichier `.sha256` pour chaque archive ;
-- `output/releases/install-personal-o2switch.sh`.
+- `output/install-personal-o2switch.sh`.
 
 ## Installation personnelle sur o2switch
 

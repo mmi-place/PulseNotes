@@ -2,7 +2,7 @@ param([ValidateSet('all','global','personal')][string]$Mode = 'all')
 $ErrorActionPreference = 'Stop'
 $root = Split-Path -Parent $PSScriptRoot
 $frontend = Join-Path $root 'src'
-$releaseRoot = Join-Path $root 'output\releases'
+$releaseRoot = Join-Path $root 'output'
 
 function Get-Sha256([string]$Path) {
     $algorithm = [System.Security.Cryptography.SHA256]::Create()
@@ -17,6 +17,8 @@ function Get-Sha256([string]$Path) {
 
 Push-Location $frontend
 try { npm run build } finally { Pop-Location }
+
+New-Item -ItemType Directory -Path $releaseRoot -Force | Out-Null
 
 foreach ($target in @('global','personal')) {
     if ($Mode -ne 'all' -and $Mode -ne $target) { continue }

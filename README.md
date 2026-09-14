@@ -47,9 +47,9 @@ Le premier démarre automatiquement Docker et le conteneur MySQL dédié. Le sec
 build-release.bat
 ```
 
-Les archives globale et personnelle, accompagnées de leur empreinte SHA-256, sont créées dans `output/releases/`.
+Les archives globale et personnelle, accompagnées de leur empreinte SHA-256, sont créées directement dans `output/`.
 
-Les sous-dossiers `global/` et `personal/` sont les versions décompressées prêtes à téléverser. Les ZIP contiennent exactement le même contenu. Le dossier `output/qa/`, lorsqu’il existe, ne contient que les captures de validation et n’est jamais publié.
+Les sous-dossiers `global/` et `personal/` sont les versions décompressées prêtes à téléverser. Les ZIP contiennent exactement le même contenu.
 
 ```bat
 build-release.bat main

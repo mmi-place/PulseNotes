@@ -16,5 +16,5 @@ if errorlevel 1 (
   exit /b 1
 )
 echo.
-echo  Terminee. Livrables disponibles dans output\releases\
+echo  Terminee. Livrables disponibles dans output\
 exit /b %errorlevel%

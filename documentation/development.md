@@ -103,8 +103,6 @@ build-release.bat individuel
 
 Les sorties de développement (`src/dist`, `output`, `php/data` et `.playwright-cli`) sont ignorées par Git et ne doivent jamais être modifiées comme sources.
 
-`output/qa/` contient uniquement les captures et rapports produits pendant les vérifications visuelles. Ce dossier peut être supprimé à tout moment ; il est recréé lors d’une nouvelle QA et n’est jamais inclus dans les distributions.
-
 ## Organisation du dépôt
 
 ```text
