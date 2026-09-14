@@ -57,6 +57,8 @@ Avant une mise à jour :
 
 ## Installation globale
 
+Le service global public prévu pour PulseNotes est : <https://pulsenotes.mmi.place>.
+
 Prérequis serveur :
 
 - PHP 8.1 ou supérieur avec `curl`, `dom`, `libxml`, `session` et le pilote PDO de la base ;

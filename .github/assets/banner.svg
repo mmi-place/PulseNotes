@@ -1,0 +1,44 @@
+<svg width="1280" height="420" viewBox="0 0 1280 420" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="title desc">
+  <title id="title">PulseNotes</title>
+  <desc id="desc">Banniere GitHub PulseNotes, interface securisee pour consulter et analyser ses notes UVSQ.</desc>
+  <defs>
+    <linearGradient id="background" x1="80" y1="40" x2="1180" y2="360" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#0F172A"/>
+      <stop offset="0.48" stop-color="#164E63"/>
+      <stop offset="1" stop-color="#0F766E"/>
+    </linearGradient>
+    <linearGradient id="accent" x1="0" y1="0" x2="1" y2="1">
+      <stop stop-color="#67E8F9"/>
+      <stop offset="1" stop-color="#A7F3D0"/>
+    </linearGradient>
+    <filter id="softShadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="18" stdDeviation="18" flood-color="#020617" flood-opacity="0.28"/>
+    </filter>
+  </defs>
+  <rect width="1280" height="420" rx="34" fill="url(#background)"/>
+  <path d="M109 319C219 255 271 133 397 164C481 185 511 278 609 258C715 236 727 91 854 83C988 75 1026 231 1171 199" stroke="white" stroke-opacity="0.14" stroke-width="42" stroke-linecap="round"/>
+  <path d="M112 319C222 255 274 133 400 164C484 185 514 278 612 258C718 236 730 91 857 83C991 75 1029 231 1174 199" stroke="url(#accent)" stroke-width="7" stroke-linecap="round"/>
+  <g filter="url(#softShadow)">
+    <rect x="808" y="96" width="314" height="226" rx="22" fill="white" fill-opacity="0.95"/>
+    <rect x="836" y="129" width="258" height="14" rx="7" fill="#CBD5E1"/>
+    <rect x="836" y="165" width="76" height="112" rx="12" fill="#D1FAE5"/>
+    <rect x="929" y="194" width="76" height="83" rx="12" fill="#BAE6FD"/>
+    <rect x="1022" y="148" width="76" height="129" rx="12" fill="#A7F3D0"/>
+    <circle cx="874" cy="246" r="8" fill="#0F766E"/>
+    <circle cx="967" cy="228" r="8" fill="#0284C7"/>
+    <circle cx="1060" cy="188" r="8" fill="#0F766E"/>
+  </g>
+  <g>
+    <text x="110" y="150" fill="white" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="72" font-weight="800" letter-spacing="-1">PulseNotes</text>
+    <text x="115" y="202" fill="#CCFBF1" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="25" font-weight="600">Notes UVSQ, statistiques de promotion et bulletins PDF</text>
+    <text x="115" y="252" fill="#E0F2FE" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="20">Un proxy PHP securise, un frontend React, deux editions: globale et personnelle.</text>
+    <g font-family="Inter, Segoe UI, Arial, sans-serif" font-size="18" font-weight="700">
+      <rect x="115" y="291" width="164" height="42" rx="21" fill="white" fill-opacity="0.16"/>
+      <text x="139" y="318" fill="white">Mode global</text>
+      <rect x="295" y="291" width="190" height="42" rx="21" fill="white" fill-opacity="0.16"/>
+      <text x="319" y="318" fill="white">Self-host o2switch</text>
+      <rect x="501" y="291" width="149" height="42" rx="21" fill="white" fill-opacity="0.16"/>
+      <text x="525" y="318" fill="white">PDF & stats</text>
+    </g>
+  </g>
+</svg>

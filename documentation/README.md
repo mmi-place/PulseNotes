@@ -2,6 +2,8 @@
 
 Cette documentation décrit l’application actuelle. Les anciennes pistes d’extension navigateur et les plans de refonte terminés ne font plus partie de la documentation maintenue.
 
+Service global public : <https://pulsenotes.mmi.place>
+
 ## Commencer
 
 1. [Installer PulseNotes](installation.md)

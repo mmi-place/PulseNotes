@@ -49,7 +49,7 @@ jobs:
           target_commitish: ${{ github.sha }}
           name: ${{ steps.release_meta.outputs.name }}
           prerelease: ${{ steps.release_meta.outputs.prerelease }}
-          generate_release_notes: true
+          body_path: .github/release-notes.md
           files: |
             output/pulsenotes-global.zip
             output/pulsenotes-global.zip.sha256

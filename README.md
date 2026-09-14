@@ -1,39 +1,69 @@
-# PulseNotes
+<p align="center">
+  <img src=".github/assets/banner.svg" alt="PulseNotes - Notes UVSQ, statistiques de promotion et bulletins PDF">
+</p>
 
-Interface alternative pour consulter les résultats universitaires UVSQ : notes, statistiques de promotion, suivi des changements et bulletins PDF personnalisés.
+<p align="center">
+  <a href="https://pulsenotes.mmi.place"><strong>Ouvrir PulseNotes</strong></a>
+  ·
+  <a href="documentation/installation.md">Installer</a>
+  ·
+  <a href="documentation/README.md">Documentation</a>
+  ·
+  <a href="php/README.md">API PHP</a>
+  ·
+  <a href="https://github.com/mmi-place/PulseNotes/releases">Releases</a>
+</p>
 
-PulseNotes utilise un frontend React et un proxy PHP. Le navigateur communique uniquement avec l’API de l’installation ; l’authentification CAS et les appels à Bulletins restent côté serveur.
+<p align="center">
+  <a href="https://github.com/mmi-place/PulseNotes/actions/workflows/release.yml"><img alt="Build et release" src="https://github.com/mmi-place/PulseNotes/actions/workflows/release.yml/badge.svg"></a>
+  <a href="https://github.com/mmi-place/PulseNotes/releases"><img alt="Derniere release" src="https://img.shields.io/github/v/release/mmi-place/PulseNotes?include_prereleases&label=release"></a>
+  <img alt="Frontend React" src="https://img.shields.io/badge/frontend-React-149ECA">
+  <img alt="Proxy PHP" src="https://img.shields.io/badge/proxy-PHP-777BB4">
+  <img alt="Stockage" src="https://img.shields.io/badge/storage-MySQL%20%7C%20SQLite-0F766E">
+</p>
+
+## Ce que fait PulseNotes
+
+PulseNotes est une interface alternative pour consulter les résultats universitaires UVSQ avec une lecture plus claire des notes, des statistiques de promotion, du suivi des changements et des exports PDF personnalisés.
+
+Le navigateur ne contacte jamais directement CAS ou Bulletins UVSQ. Toutes les connexions passent par un proxy PHP côté serveur, ce qui permet de proposer deux usages propres: un service global partagé et une installation personnelle auto-hébergée.
+
+## Accès et éditions
+
+| Besoin | Edition recommandée | Lien ou paquet | Stockage |
+| --- | --- | --- | --- |
+| Utiliser le service partagé | Globale | <https://pulsenotes.mmi.place> | MySQL ou PostgreSQL |
+| Héberger pour soi | Personnelle | `pulsenotes-personal.zip` | SQLite |
+| Déployer un service administré | Globale | `pulsenotes-global.zip` | MySQL ou PostgreSQL |
+
+| Edition | Usage | Mot de passe UVSQ |
+| --- | --- | --- |
+| **Globale** | Plusieurs étudiants, sessions séparées | Jamais enregistré |
+| **Personnelle** | Un seul étudiant, accès local par PIN, schéma ou mot de passe | Chiffré sur l’installation privée |
+
+Les deux éditions partagent le même frontend React et le même coeur PHP. Leur point d’entrée impose le mode de déploiement afin d’éviter toute configuration ambiguë.
 
 ## Fonctionnalités
 
-- synthèse par semestre, année ou parcours complet ;
-- notes regroupées par module ou présentées en liste ;
-- rangs et distributions chargés à la demande ;
-- détection des notes nouvelles ou modifiées ;
-- analyses par UE, module et période ;
-- bulletins officiels et exports PDF PulseNotes ;
-- liens publics révocables pour une note unique ;
-- navigation clavier et interface mobile dédiée.
+- synthèse par semestre, année ou parcours complet;
+- notes par module ou en liste filtrable;
+- rangs, min/moyenne/max et distributions chargés à la demande;
+- détection des notes nouvelles ou modifiées;
+- analyses par UE, module et période;
+- bulletins officiels et exports PDF PulseNotes;
+- liens publics révocables pour présenter une note unique;
+- navigation clavier, accessibilité et interface mobile dédiée.
 
-## Deux éditions
+## Démarrage local
 
-| Édition | Usage | Stockage | Mot de passe UVSQ |
-| --- | --- | --- | --- |
-| **Globale** | Service partagé entre plusieurs étudiants | MySQL ou PostgreSQL | Jamais enregistré |
-| **Personnelle** | Installation privée pour un étudiant | SQLite | Chiffré localement |
-
-Les deux éditions partagent le même frontend et le même cœur PHP. Leur point d’entrée impose le mode de déploiement afin d’éviter toute configuration ambiguë.
-
-## Démarrage rapide
-
-Prérequis : Node.js 20.19 ou supérieur, npm, WSL et PHP 8.1 ou supérieur.
+Prérequis: Node.js 20.19 ou supérieur, npm, WSL, PHP 8.1 ou supérieur et Docker Desktop pour le mode global.
 
 ```bat
 rundev-global.bat
 rundev-individuel.bat
 ```
 
-Le premier démarre automatiquement Docker et le conteneur MySQL dédié. Le second utilise uniquement SQLite. `rundev.bat` affiche un menu permettant de choisir l’un des deux modes.
+`rundev-global.bat` démarre Docker et le conteneur MySQL dédié. `rundev-individuel.bat` utilise SQLite localement. `rundev.bat` affiche un menu permettant de choisir le mode au lancement.
 
 | Service | Adresse |
 | --- | --- |
@@ -47,28 +77,38 @@ Le premier démarre automatiquement Docker et le conteneur MySQL dédié. Le sec
 build-release.bat
 ```
 
-Les archives globale et personnelle, accompagnées de leur empreinte SHA-256, sont créées directement dans `output/`.
+Les livrables sont générés directement dans `output/`.
 
-Les sous-dossiers `global/` et `personal/` sont les versions décompressées prêtes à téléverser. Les ZIP contiennent exactement le même contenu.
-
-```bat
-build-release.bat main
-build-release.bat individuel
+```text
+output/
+├── global/
+├── personal/
+├── install-personal-o2switch.sh
+├── pulsenotes-global.zip
+├── pulsenotes-global.zip.sha256
+├── pulsenotes-personal.zip
+└── pulsenotes-personal.zip.sha256
 ```
 
-Ces deux variantes construisent uniquement l’édition demandée.
+Chaque push sur `main` publie aussi une prerelease GitHub avec les deux ZIP et l’installateur o2switch. Les tags `v*` publient une release versionnée.
 
 ## Documentation
 
 | Guide | Contenu |
 | --- | --- |
 | [Centre de documentation](documentation/README.md) | Index de tous les guides |
-| [Installation](documentation/installation.md) | Déploiement global et personnel |
+| [Installation](documentation/installation.md) | Déploiement global, personnel et o2switch |
 | [Développement](documentation/development.md) | Environnement, commandes et structure |
 | [Architecture](documentation/architecture.md) | Flux applicatifs et séparation des éditions |
+| [Fonctionnalités](documentation/features.md) | Produit, pages, PDF et partage |
+| [Données](documentation/data.md) | Sources, calculs et valeurs absentes |
 | [Sécurité](documentation/security.md) | Sessions, chiffrement, rétention et partages |
+| [Interface](documentation/interface.md) | Responsive, accessibilité et composants |
+| [Livraison](documentation/release.md) | Contrôles et génération des archives |
 | [Référence API](php/README.md) | Routes et paramètres du proxy PHP |
+
+Le Wiki GitHub sert de porte d’entrée courte et renvoie vers ces documents maintenus dans le dépôt.
 
 ## Statut
 
-Le projet est en développement actif. Avant un déploiement public, utilisez un compte UVSQ de test, configurez HTTPS et appliquez la checklist de [livraison](documentation/release.md).
+PulseNotes est en développement actif. Avant un déploiement public, utilisez un compte UVSQ de test, configurez HTTPS et appliquez la checklist de [livraison](documentation/release.md).
