@@ -1,0 +1,8 @@
+<?php
+return [
+    'PULSENOTES_INSTANCE_NAME' => 'PulseNotes',
+    'PULSENOTES_APP_KEY' => 'CHANGEZ_CETTE_CLE_ALEATOIRE',
+    'PULSENOTES_DATABASE_DSN' => 'mysql:host=localhost;dbname=pulsenotes;charset=utf8mb4',
+    'PULSENOTES_DATABASE_USER' => 'pulsenotes',
+    'PULSENOTES_DATABASE_PASSWORD' => 'CHANGEZ_CE_MOT_DE_PASSE',
+];

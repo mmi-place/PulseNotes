@@ -1,0 +1,12 @@
+Options -Indexes
+RewriteEngine On
+RewriteRule ^share/[a-fA-F0-9]{64}$ api/index.php [QSA,L]
+RewriteRule ^api(?:/.*)?$ api/index.php [QSA,L]
+RewriteCond %{REQUEST_FILENAME} -f [OR]
+RewriteCond %{REQUEST_FILENAME} -d
+RewriteRule ^ - [L]
+RewriteRule ^ index.html [L]
+
+<FilesMatch "(^\.|\.sqlite(?:-shm|-wal)?$|config\.php$)">
+  Require all denied
+</FilesMatch>

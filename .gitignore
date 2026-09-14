@@ -1,0 +1,12 @@
+node_modules/
+src/node_modules/
+src/dist/
+src/tsconfig.tsbuildinfo
+src/package/
+src/chart.js-*.tgz
+output/
+tmp/
+old/
+.playwright-cli/
+src/.playwright-cli/
+php/data/

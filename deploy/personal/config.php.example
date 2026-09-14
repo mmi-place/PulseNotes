@@ -1,0 +1,6 @@
+<?php
+return [
+    'PULSENOTES_INSTANCE_NAME' => 'Mon PulseNotes',
+    'PULSENOTES_APP_KEY' => 'CHANGEZ_CETTE_CLE_ALEATOIRE',
+    'PULSENOTES_SQLITE_PATH' => __DIR__ . '/data/pulsenotes.sqlite',
+];
