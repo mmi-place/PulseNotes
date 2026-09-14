@@ -55,14 +55,16 @@ bash -n deploy/personal/update.sh
 
 ```text
 output/releases/
-├── install-personal-o2switch.sh
+├── global/                         Dossier global prêt à téléverser
+├── personal/                       Dossier personnel prêt à téléverser
+├── install-personal-o2switch.sh    Installateur cPanel
 ├── pulsenotes-global.zip
 ├── pulsenotes-global.zip.sha256
 ├── pulsenotes-personal.zip
 └── pulsenotes-personal.zip.sha256
 ```
 
-Chaque ZIP doit contenir `index.html`, `assets/`, `api/index.php`, `api/router.php`, les règles `.htaccess` et un exemple de configuration. L’édition personnelle contient aussi `api/update.sh` et la protection de `api/data/`.
+Chaque ZIP doit contenir `index.html`, `assets/`, `api/index.php`, `api/router.php`, `api/config.php`, `api/update.sh` et les règles `.htaccess`. Le `config.php` livré contient seulement des valeurs à remplacer, jamais un secret réel. L’édition personnelle contient aussi la protection de `api/data/`.
 
 ## Publication
 
@@ -72,4 +74,4 @@ Chaque ZIP doit contenir `index.html`, `assets/`, `api/index.php`, `api/router.p
 4. déployer d’abord sur une installation de test ;
 5. contrôler la santé de l’API avant d’ouvrir la nouvelle version.
 
-Ne publiez aucune archive contenant `api/config.php`, une base SQLite, des cookies ou des données étudiantes.
+Ne publiez aucune archive contenant un `api/config.php` déjà configuré, une base SQLite, des cookies ou des données étudiantes.

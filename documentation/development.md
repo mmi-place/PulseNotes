@@ -29,6 +29,8 @@ Le jeu de démonstration ne nécessite pas de compte :
 http://localhost:5173/?demo=1
 ```
 
+Le paramètre `demo=1` remplace les appels étudiants par un jeu de données fictif généré dans le navigateur. Il ne crée aucune session, n’écrit aucune note en base et peut être utilisé sur un build de production pour présenter l’interface.
+
 Ajoutez `&debug` pour afficher les outils de test des états de note.
 
 ## Vérifications
@@ -53,6 +55,8 @@ build-release.bat individuel
 ```
 
 Les sorties de développement (`src/dist`, `output`, `php/data` et `.playwright-cli`) sont ignorées par Git et ne doivent jamais être modifiées comme sources.
+
+`output/qa/` contient uniquement les captures et rapports produits pendant les vérifications visuelles. Ce dossier peut être supprimé à tout moment ; il est recréé lors d’une nouvelle QA et n’est jamais inclus dans les distributions.
 
 ## Organisation du dépôt
 

@@ -27,13 +27,15 @@ foreach ($target in @('global','personal')) {
     Copy-Item (Join-Path $frontend 'dist\*') $destination -Recurse -Force
     Copy-Item (Join-Path $root 'php\router.php') (Join-Path $destination 'api\router.php')
     Copy-Item (Join-Path $root "deploy\$target\index.php") (Join-Path $destination 'api\index.php')
-    Copy-Item (Join-Path $root "deploy\$target\config.php.example") (Join-Path $destination 'api\config.php.example')
+    Copy-Item (Join-Path $root "deploy\$target\config.php.example") (Join-Path $destination 'api\config.php')
     Copy-Item (Join-Path $root 'deploy\common\.htaccess') (Join-Path $destination '.htaccess')
     Copy-Item (Join-Path $root 'deploy\common\api.htaccess') (Join-Path $destination 'api\.htaccess')
     if ($target -eq 'personal') {
         New-Item -ItemType Directory -Path (Join-Path $destination 'api\data') -Force | Out-Null
         Copy-Item (Join-Path $root 'deploy\common\api.htaccess') (Join-Path $destination 'api\data\.htaccess')
         Copy-Item (Join-Path $root 'deploy\personal\update.sh') (Join-Path $destination 'api\update.sh')
+    } else {
+        Copy-Item (Join-Path $root 'deploy\global\update.sh') (Join-Path $destination 'api\update.sh')
     }
     $archive = Join-Path $releaseRoot "pulsenotes-$target.zip"
     Remove-Item -LiteralPath $archive -Force -ErrorAction SilentlyContinue

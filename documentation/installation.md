@@ -46,7 +46,7 @@ Une fois HTTPS actif, ouvrez le sous-domaine et suivez l’assistant : vérific
 
 ### Mise à jour personnelle
 
-Le paquet personnel contient `api/update.sh`. Le script préserve `api/config.php` et `api/data/`, qui contient la base SQLite.
+Le paquet personnel contient `api/update.sh`. Le script télécharge la dernière Release GitHub et préserve `api/config.php` ainsi que `api/data/`, qui contient la base SQLite.
 
 Avant une mise à jour :
 
@@ -67,8 +67,8 @@ Prérequis serveur :
 Procédure :
 
 1. extraire `pulsenotes-global.zip` dans la racine web ;
-2. copier `api/config.php.example` vers `api/config.php` ;
-3. créer une clé aléatoire d’au moins 32 octets ;
+2. ouvrir le fichier `api/config.php` déjà présent ;
+3. remplacer toutes les valeurs `CHANGEZ_…` et créer une clé aléatoire d’au moins 32 octets ;
 4. renseigner le DSN et le compte de base de données ;
 5. protéger `api/config.php` en lecture serveur uniquement ;
 6. ouvrir `/api/status`, puis tester une connexion complète.
@@ -87,6 +87,41 @@ return [
 ```
 
 Ne placez jamais ce fichier dans Git. Conservez la clé applicative séparément des sauvegardes de base de données.
+
+### Clé applicative
+
+`PULSENOTES_APP_KEY` est la clé maîtresse de l’installation. Elle protège les sessions, les instantanés de notes et les partages enregistrés. Générez-la une seule fois :
+
+```bash
+openssl rand -hex 32
+```
+
+Elle doit rester secrète, stable et différente entre deux installations. La perdre rend les données chiffrées illisibles ; la modifier sans migration invalide les sessions et les enregistrements existants.
+
+### Mise à jour globale
+
+Le paquet global contient aussi `api/update.sh`. Il remplace le frontend et le code PHP, mais conserve `api/config.php` et ne touche pas à la base distante.
+
+```bash
+cd /chemin/du/site/api
+./update.sh
+```
+
+Le domaine n’est pas configuré dans l’updater : le dossier cible est déterminé par l’emplacement du script. Exécuter `/home/compte/pulsenotes/api/update.sh` met donc à jour l’application servie par le domaine dont la racine pointe vers `/home/compte/pulsenotes`.
+
+Pour utiliser un serveur de versions différent :
+
+```bash
+PULSENOTES_RELEASE_URL="https://releases.example.org/pulsenotes-global.zip" ./update.sh
+```
+
+Une automatisation facultative peut être ajoutée dans cPanel avec une tâche cron quotidienne :
+
+```cron
+17 4 * * * /home/COMPTE/pulsenotes/api/update.sh >> /home/COMPTE/logs/pulsenotes-update.log 2>&1
+```
+
+Une mise à jour manuelle après sauvegarde reste plus prudente. L’empreinte SHA-256 vérifie le téléchargement, mais ne remplace pas une signature cryptographique indépendante du serveur de publication.
 
 ## Vérification après installation
 

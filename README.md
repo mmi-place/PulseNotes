@@ -46,6 +46,8 @@ build-release.bat
 
 Les archives globale et personnelle, accompagnées de leur empreinte SHA-256, sont créées dans `output/releases/`.
 
+Les sous-dossiers `global/` et `personal/` sont les versions décompressées prêtes à téléverser. Les ZIP contiennent exactement le même contenu. Le dossier `output/qa/`, lorsqu’il existe, ne contient que les captures de validation et n’est jamais publié.
+
 ```bat
 build-release.bat main
 build-release.bat individuel

@@ -5,7 +5,7 @@ umask 077
 APP_NAME="PulseNotes personnel"
 APP_DIR_NAME="pulsenotes"
 SUBDOMAIN="pulsenotes"
-RELEASE_URL="${PULSENOTES_RELEASE_URL:-https://bulletins.mmi.place/install/pulsenotes-personal.zip}"
+RELEASE_URL="${PULSENOTES_RELEASE_URL:-https://github.com/mmi-place/PulseNotes/releases/latest/download/pulsenotes-personal.zip}"
 TMP_DIR="$(mktemp -d)"
 trap 'rm -rf "$TMP_DIR"' EXIT
 
