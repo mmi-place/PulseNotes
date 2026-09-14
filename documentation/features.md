@@ -48,7 +48,7 @@ La page Semestres regroupe les périodes par année et donne accès aux téléch
 
 Le PDF PulseNotes est un export personnalisé non officiel. Il peut inclure synthèse, UE, modules, évaluations, rangs et graphiques selon le profil choisi.
 
-## Partage d’une note
+## Partage d’une note (installation personnelle)
 
 Depuis le détail d’une note, un utilisateur peut créer une URL publique aléatoire. Cette page expose uniquement la note sélectionnée, le profil affiché et ses statistiques.
 

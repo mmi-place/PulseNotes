@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 
-const INSTALL_COMMAND = 'curl -fsSL https://bulletins.mmi.place/install/install-personal-o2switch.sh | bash';
+const INSTALL_COMMAND = 'curl -fsSL https://pulsenotes.mmi.place/install.sh | bash';
 
 function CpanelIllustration() {
   return <svg className="tutorial-svg cpanel-svg" viewBox="0 0 720 430" role="img" aria-labelledby="cpanel-svg-title cpanel-svg-description">
@@ -22,7 +22,7 @@ function TerminalIllustration() {
   return <svg className="tutorial-svg terminal-svg" viewBox="0 0 720 390" role="img" aria-labelledby="terminal-svg-title terminal-svg-description">
     <title id="terminal-svg-title">Terminal cPanel exécutant l’installation PulseNotes</title><desc id="terminal-svg-description">La commande d’installation est collée, puis cinq étapes de configuration s’affichent.</desc>
     <rect className="terminal-frame" x="1" y="1" width="718" height="388" rx="14" /><rect className="terminal-bar" x="1" y="1" width="718" height="42" rx="14" /><circle cx="22" cy="22" r="5" /><circle cx="39" cy="22" r="5" /><circle cx="56" cy="22" r="5" /><text x="360" y="27" textAnchor="middle" className="terminal-title">Terminal — cPanel</text>
-    <text x="28" y="82" className="terminal-prompt">[utilisateur@serveur ~]$</text><text x="194" y="82" className="terminal-command-svg">curl -fsSL …/install-personal-o2switch.sh | bash</text>
+    <text x="28" y="82" className="terminal-prompt">[utilisateur@serveur ~]$</text><text x="194" y="82" className="terminal-command-svg">curl -fsSL …/install.sh | bash</text>
     <g className="terminal-output"><text x="28" y="127">Installation o2switch — PulseNotes personnel</text><text x="28" y="162"><tspan className="terminal-step">[1/5]</tspan> Téléchargement et contrôle de la distribution</text><text x="28" y="193"><tspan className="terminal-step">[2/5]</tspan> Détection de votre domaine o2switch</text><text x="28" y="224"><tspan className="terminal-step">[3/5]</tspan> Création du sous-domaine</text><text x="28" y="255"><tspan className="terminal-step">[4/5]</tspan> Installation sécurisée de l’application</text><text x="28" y="286"><tspan className="terminal-step">[5/5]</tspan> Vérification</text><text x="28" y="334" className="terminal-success">Installation terminée : https://pulsenotes.votre-domaine.fr</text></g><rect className="terminal-caret" x="632" y="67" width="8" height="18" />
   </svg>;
 }

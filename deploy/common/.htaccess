@@ -1,6 +1,7 @@
 Options -Indexes
 RewriteEngine On
 RewriteRule ^share/[a-fA-F0-9]{64}$ api/index.php [QSA,L]
+RewriteRule ^install\.sh$ api/index.php [QSA,L]
 RewriteRule ^api(?:/.*)?$ api/index.php [QSA,L]
 RewriteCond %{REQUEST_FILENAME} -f [OR]
 RewriteCond %{REQUEST_FILENAME} -d

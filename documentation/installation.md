@@ -31,9 +31,13 @@ Le script crée :
 
 L’installateur cible le Terminal cPanel. Il télécharge l’archive, vérifie son empreinte, crée le sous-domaine `pulsenotes`, génère la clé applicative et protège SQLite.
 
+Depuis le Terminal cPanel, vous pouvez le télécharger depuis le service global :
+
 ```bash
-bash install-personal-o2switch.sh
+curl -fsSL https://pulsenotes.mmi.place/install.sh | bash
 ```
+
+Cette route courte relaie la version `main` de l’installateur officiel du dépôt GitHub. Vérifiez le script avant exécution si votre politique d’exploitation l’exige.
 
 L’URL de téléchargement par défaut peut être remplacée :
 
@@ -92,7 +96,7 @@ Ne placez jamais ce fichier dans Git. Conservez la clé applicative séparément
 
 ### Clé applicative
 
-`PULSENOTES_APP_KEY` est la clé maîtresse de l’installation. Elle protège les sessions, les instantanés de notes et les partages enregistrés. Générez-la une seule fois :
+`PULSENOTES_APP_KEY` est la clé maîtresse de l’installation. Elle protège les sessions, les instantanés de notes et, en installation personnelle, les partages enregistrés. Générez-la une seule fois :
 
 ```bash
 openssl rand -hex 32

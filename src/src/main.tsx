@@ -214,7 +214,7 @@ function App() {
         : view === 'semesters'
           ? data ? <Semesters data={data} active={scope} onSelect={selectScope} onView={setView} /> : null
           : view === 'notes'
-            ? <Notes reports={selectedReports} semesters={(data?.semesters || []).filter(item => selectedReports.some(report => report.id === item.id))} initialQuery={notesQuery} targetEvaluationId={notesTargetId} onTargetHandled={() => setNotesTargetId(null)} scopeLabel={scopeLabel} studentName={data?.profile.name || ''} formation={data?.profile.formation || ''} demo={isDemo} changeStates={changeStates} onSeen={onSeen} onSeenMany={onSeenMany} debugMode={debugMode} onDebugState={onDebugState} />
+            ? <Notes reports={selectedReports} semesters={(data?.semesters || []).filter(item => selectedReports.some(report => report.id === item.id))} initialQuery={notesQuery} targetEvaluationId={notesTargetId} onTargetHandled={() => setNotesTargetId(null)} scopeLabel={scopeLabel} studentName={data?.profile.name || ''} formation={data?.profile.formation || ''} demo={isDemo} sharingEnabled={deploymentMode === 'selfhosted'} changeStates={changeStates} onSeen={onSeen} onSeenMany={onSeenMany} debugMode={debugMode} onDebugState={onDebugState} />
             : view === 'analyses'
               ? <Analyses report={report} onView={setView} onNotesFilter={value => onNotesFilter(value)} onOpenEvaluation={openEvaluation} scopeLabel={scopeLabel} />
               : <Synthesis report={report} reports={selectedReports} annual={scope.startsWith('year:')} scopeLabel={scopeLabel} changeStates={changeStates} onSeen={onSeen} onSeenMany={onSeenMany} onView={setView} onNotesFilter={value => onNotesFilter(value)} onOpenEvaluation={openEvaluation} />;

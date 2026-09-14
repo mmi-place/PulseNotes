@@ -405,6 +405,36 @@ function respond(int $status, array $payload): never
     exit;
 }
 
+function respondInstallerScript(): never
+{
+    $url = 'https://raw.githubusercontent.com/mmi-place/PulseNotes/refs/heads/main/installer/install-personal-o2switch.sh';
+    $handle = curl_init($url);
+    if ($handle === false) throw new RuntimeException('Impossible d\'initialiser le téléchargement de l’installateur.');
+    curl_setopt_array($handle, [
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_FOLLOWLOCATION => false,
+        CURLOPT_CONNECTTIMEOUT => 5,
+        CURLOPT_TIMEOUT => 15,
+        CURLOPT_USERAGENT => 'PulseNotesInstallerProxy/1.0',
+        CURLOPT_SSL_VERIFYPEER => true,
+        CURLOPT_SSL_VERIFYHOST => 2,
+    ]);
+    $body = curl_exec($handle);
+    $status = (int) curl_getinfo($handle, CURLINFO_RESPONSE_CODE);
+    $contentType = (string) (curl_getinfo($handle, CURLINFO_CONTENT_TYPE) ?: '');
+    $error = curl_error($handle);
+    curl_close($handle);
+    if ($body === false) throw new RuntimeException('Téléchargement de l’installateur impossible : ' . $error);
+    if ($status < 200 || $status >= 300) throw new RuntimeException('GitHub a refusé le téléchargement de l’installateur.');
+    if (!str_starts_with($body, '#!/bin/bash')) throw new RuntimeException('Le contenu téléchargé n’est pas un installateur shell valide.');
+    http_response_code(200);
+    header('Content-Type: text/plain; charset=utf-8');
+    header('Content-Disposition: inline; filename="install-personal-o2switch.sh"');
+    header('Cache-Control: no-cache, must-revalidate');
+    echo $body;
+    exit;
+}
+
 function evaluationDatabase(): PDO
 {
     return applicationDatabase();
@@ -583,13 +613,11 @@ function createNoteShare(array $payload, string $evaluationSource): array
     $sourceEvaluation = json_decode($evaluationSource, true);
     if (!is_array($sourceEvaluation) || $sourceEvaluation != $payload['evaluation']) throw new InvalidArgumentException('La note partagée ne correspond pas aux données synchronisées.');
     $record = evaluationRecordById($userKey, $evaluationId);
-    $fingerprint = is_array($record) ? (string) ($record['data']['fingerprint'] ?? '') : '';
-    if ($fingerprint === '') {
-        $statement = applicationDatabase()->prepare('SELECT fingerprint FROM evaluation_state WHERE user_key = ? AND evaluation_id = ?');
+    if ($record === null) {
+        $statement = applicationDatabase()->prepare('SELECT evaluation_id FROM evaluation_state WHERE user_key = ? AND evaluation_id = ?');
         $statement->execute([$userKey, $evaluationId]);
-        $fingerprint = (string) ($statement->fetchColumn() ?: '');
+        if ($statement->fetchColumn() === false) throw new InvalidArgumentException('Cette note doit être chargée avant de pouvoir être partagée.');
     }
-    if (!is_string($fingerprint) || !hash_equals($fingerprint, hash('sha256', $evaluationSource))) throw new InvalidArgumentException('Synchronisez vos notes avant de créer ce partage.');
     $token = bin2hex(random_bytes(32));
     $encoded = sealUserData($payload, $userKey);
     applicationDatabase()->prepare('INSERT INTO note_share (token, user_key, evaluation_id, payload, created_at) VALUES (?, ?, ?, ?, ?)')->execute([$token, $userKey, $evaluationId, $encoded, time()]);
@@ -1135,28 +1163,43 @@ $route = parse_url((string) ($_SERVER['REQUEST_URI'] ?? '/'), PHP_URL_PATH) ?: '
 $method = strtoupper((string) ($_SERVER['REQUEST_METHOD'] ?? 'GET'));
 
 try {
-    if (preg_match('~^/share/([a-f0-9]{64})$~', $route, $matches) === 1 && $method === 'GET') respondSharePage($matches[1]);
+    if ($route === '/install.sh' && $method === 'GET') {
+        if (deploymentMode() !== 'global') respond(404, ['ok' => false, 'error' => 'Cette route est disponible uniquement sur le service global.']);
+        respondInstallerScript();
+    }
 
-    if (preg_match('~^/api/shares/([a-f0-9]{64})/card\.svg$~', $route, $matches) === 1 && $method === 'GET') respondShareCard($matches[1]);
+    if (preg_match('~^/share/([a-f0-9]{64})$~', $route, $matches) === 1 && $method === 'GET') {
+        if (deploymentMode() !== 'selfhosted') respond(404, ['ok' => false, 'error' => 'Le partage de notes est réservé aux installations personnelles.']);
+        respondSharePage($matches[1]);
+    }
+
+    if (preg_match('~^/api/shares/([a-f0-9]{64})/card\.svg$~', $route, $matches) === 1 && $method === 'GET') {
+        if (deploymentMode() !== 'selfhosted') respond(404, ['ok' => false, 'error' => 'Le partage de notes est réservé aux installations personnelles.']);
+        respondShareCard($matches[1]);
+    }
 
     if (preg_match('~^/api/shares/([a-f0-9]{64})$~', $route, $matches) === 1 && $method === 'GET') {
+        if (deploymentMode() !== 'selfhosted') respond(404, ['ok' => false, 'error' => 'Le partage de notes est réservé aux installations personnelles.']);
         $share = publicNoteShare($matches[1]);
         if ($share === null) respond(404, ['ok' => false, 'error' => 'Ce partage n’existe pas ou a été désactivé.']);
         respond(200, ['ok' => true, 'data' => $share]);
     }
 
     if (preg_match('~^/api/shares/([a-f0-9]{64})$~', $route, $matches) === 1 && $method === 'DELETE') {
+        if (deploymentMode() !== 'selfhosted') respond(404, ['ok' => false, 'error' => 'Le partage de notes est réservé aux installations personnelles.']);
         if (empty($_SESSION['remoteCookies'])) throw new AuthenticationRequired('Connectez-vous à votre compte UVSQ.');
         revokeNoteShare($matches[1]);
         respond(200, ['ok' => true]);
     }
 
     if ($route === '/api/shares' && $method === 'GET') {
+        if (deploymentMode() !== 'selfhosted') respond(404, ['ok' => false, 'error' => 'Le partage de notes est réservé aux installations personnelles.']);
         if (empty($_SESSION['remoteCookies'])) throw new AuthenticationRequired('Connectez-vous à votre compte UVSQ.');
         respond(200, ['ok' => true, 'data' => ['shares' => listNoteShares(isset($_GET['evaluation']) ? trim((string) $_GET['evaluation']) : null)]]);
     }
 
     if ($route === '/api/shares' && $method === 'POST') {
+        if (deploymentMode() !== 'selfhosted') respond(404, ['ok' => false, 'error' => 'Le partage de notes est réservé aux installations personnelles.']);
         if (empty($_SESSION['remoteCookies'])) throw new AuthenticationRequired('Connectez-vous à votre compte UVSQ.');
         $input = jsonInput();
         $share = createNoteShare(is_array($input['payload'] ?? null) ? $input['payload'] : [], (string) ($input['evaluationSource'] ?? ''));

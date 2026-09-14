@@ -132,7 +132,8 @@ export function Layout({ data, activeView, activeSemester, scopeLabel, username,
         }
         if (event.key.toLowerCase() === 'd' && connected) {
           event.preventDefault();
-          setSettingsOpen(true);
+          if (deploymentMode === 'selfhosted') setSettingsOpen(true);
+          else onLogout();
           return;
         }
         if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') {
@@ -210,7 +211,7 @@ export function Layout({ data, activeView, activeSemester, scopeLabel, username,
             {username && data?.profile.name && <small>{username}</small>}
           </div>
           <div className="sidebar-actions">
-            {connected ? <button className="action-button secondary logout-action" aria-keyshortcuts="Alt+D" onClick={() => setSettingsOpen(true)}><span>Paramètres</span><kbd aria-hidden="true">Alt+D</kbd></button> : <button className="action-button secondary" onClick={() => window.open('https://bulletins.iut-velizy.uvsq.fr/', '_blank', 'noopener')}>Ouvrir Bulletins</button>}
+            {connected ? deploymentMode === 'selfhosted' ? <button className="action-button secondary logout-action" aria-keyshortcuts="Alt+D" onClick={() => setSettingsOpen(true)}><span>Paramètres</span><kbd aria-hidden="true">Alt+D</kbd></button> : <button className="action-button secondary logout-action" aria-keyshortcuts="Alt+D" onClick={onLogout}><span>Se déconnecter</span><kbd aria-hidden="true">Alt+D</kbd></button> : <button className="action-button secondary" onClick={() => window.open('https://bulletins.iut-velizy.uvsq.fr/', '_blank', 'noopener')}>Ouvrir Bulletins</button>}
           </div>
         </aside>
       </div>
@@ -227,8 +228,8 @@ export function Layout({ data, activeView, activeSemester, scopeLabel, username,
         <p className="footer-note">Espace personnel de consultation des résultats.</p>
       </main>
     </div>
-    {shortcutsOpen && <div className="shortcut-backdrop" role="presentation" onMouseDown={event => { if (event.target === event.currentTarget) hideShortcuts(); }}><section className="shortcut-dialog" role="dialog" aria-modal="true" aria-labelledby="shortcut-title" aria-describedby="shortcut-description"><div className="shortcut-dialog-heading"><div><span>Navigation clavier</span><h2 id="shortcut-title">Raccourcis PulseNotes</h2></div><button ref={closeShortcuts} onClick={hideShortcuts}>Fermer</button></div><p id="shortcut-description" className="shortcut-description">Les raccourcis globaux sont désactivés pendant la saisie. Dans une page, les flèches suivent la position des blocs.</p><dl><div><dt><kbd>Ctrl K</kbd></dt><dd>Rechercher une vue, une période, un module ou une note</dd></div><div><dt><kbd>Alt+1…4</kbd></dt><dd>Semestres, Synthèse, Notes ou Analyses, y compris sur clavier AZERTY</dd></div><div><dt><kbd>Alt+←</kbd> <kbd>Alt+→</kbd></dt><dd>Vue précédente ou suivante</dd></div><div><dt><kbd>/</kbd></dt><dd>Ouvrir Notes et rechercher</dd></div><div><dt><kbd>Alt+S</kbd></dt><dd>Focaliser le choix de période</dd></div><div><dt><kbd>Alt+D</kbd></dt><dd>Ouvrir les paramètres et gérer les partages</dd></div><div><dt><kbd>↑↓←→</kbd></dt><dd>Se déplacer entre les blocs ou dans le bloc sélectionné</dd></div><div><dt><kbd>Entrée</kbd> <kbd>Échap</kbd></dt><dd>Entrer dans un bloc ou en sortir</dd></div><div><dt><kbd>?</kbd> <kbd>,</kbd></dt><dd>Afficher cette aide</dd></div></dl></section></div>}
+    {shortcutsOpen && <div className="shortcut-backdrop" role="presentation" onMouseDown={event => { if (event.target === event.currentTarget) hideShortcuts(); }}><section className="shortcut-dialog" role="dialog" aria-modal="true" aria-labelledby="shortcut-title" aria-describedby="shortcut-description"><div className="shortcut-dialog-heading"><div><span>Navigation clavier</span><h2 id="shortcut-title">Raccourcis PulseNotes</h2></div><button ref={closeShortcuts} onClick={hideShortcuts}>Fermer</button></div><p id="shortcut-description" className="shortcut-description">Les raccourcis globaux sont désactivés pendant la saisie. Dans une page, les flèches suivent la position des blocs.</p><dl><div><dt><kbd>Ctrl K</kbd></dt><dd>Rechercher une vue, une période, un module ou une note</dd></div><div><dt><kbd>Alt+1…4</kbd></dt><dd>Semestres, Synthèse, Notes ou Analyses, y compris sur clavier AZERTY</dd></div><div><dt><kbd>Alt+←</kbd> <kbd>Alt+→</kbd></dt><dd>Vue précédente ou suivante</dd></div><div><dt><kbd>/</kbd></dt><dd>Ouvrir Notes et rechercher</dd></div><div><dt><kbd>Alt+S</kbd></dt><dd>Focaliser le choix de période</dd></div><div><dt><kbd>Alt+D</kbd></dt><dd>{deploymentMode === 'selfhosted' ? 'Ouvrir les paramètres' : 'Se déconnecter'}</dd></div><div><dt><kbd>↑↓←→</kbd></dt><dd>Se déplacer entre les blocs ou dans le bloc sélectionné</dd></div><div><dt><kbd>Entrée</kbd> <kbd>Échap</kbd></dt><dd>Entrer dans un bloc ou en sortir</dd></div><div><dt><kbd>?</kbd> <kbd>,</kbd></dt><dd>Afficher cette aide</dd></div></dl></section></div>}
     <CommandPalette open={commandsOpen} data={data} onClose={hideCommands} onView={onView} onScope={onSemesterChange} onNotesSearch={onNotesSearch} />
-    <SettingsDialog open={settingsOpen} username={username} deploymentMode={deploymentMode} authMethod={personalAuthMethod} onClose={() => setSettingsOpen(false)} onUpdateCredential={onUpdateCredential} onUpdateSecurity={onUpdateSecurity} onLogout={onLogout} />
+    {deploymentMode === 'selfhosted' && <SettingsDialog open={settingsOpen} username={username} deploymentMode={deploymentMode} authMethod={personalAuthMethod} onClose={() => setSettingsOpen(false)} onUpdateCredential={onUpdateCredential} onUpdateSecurity={onUpdateSecurity} onLogout={onLogout} />}
   </VisualScene>;
 }

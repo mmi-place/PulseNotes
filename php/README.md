@@ -37,7 +37,7 @@ Les URL absolues et les hôtes autres que CAS/Bulletins sont refusés afin d’�
 
 Les réponses `listeNotes` sont conservées 45 secondes dans le dossier temporaire du système. Un verrou distinct par évaluation évite plusieurs téléchargements simultanés de la même distribution. Le cache reste optionnel : s’il est indisponible, le proxy interroge directement Bulletins.
 
-En personnel, `data/pulsenotes.sqlite` conserve les états de lecture et le mot de passe UVSQ chiffré AES-256-GCM. Le PIN, schéma ou mot de passe local n’est conservé que via `password_hash`. En global, le suivi, les partages et les sessions sont chiffrés avant leur stockage dans MySQL/PostgreSQL. Les données d’un compte sont purgées après 180 jours sans synchronisation.
+En personnel, `data/pulsenotes.sqlite` conserve les états de lecture, les partages et le mot de passe UVSQ chiffré AES-256-GCM. Le PIN, schéma ou mot de passe local n’est conservé que via `password_hash`. En global, seuls le suivi et les sessions sont chiffrés avant leur stockage dans MySQL/PostgreSQL ; les routes de partage sont désactivées. Les données d’un compte sont purgées après 180 jours sans synchronisation.
 
 ## Configuration
 
