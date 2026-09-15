@@ -55,6 +55,7 @@ Les deux éditions partagent le même frontend React et le même coeur PHP. Leur
 - bulletins officiels et exports PDF PulseNotes;
 - liens publics révocables pour présenter une note unique en installation personnelle;
 - navigation clavier, accessibilité et interface mobile dédiée.
+- mises à jour stables déclenchées naturellement par l’application, sans tâche cron.
 
 ## Démarrage local
 

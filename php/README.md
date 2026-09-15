@@ -7,6 +7,8 @@ Le même cœur métier fonctionne dans deux modes strictement séparés : `glob
 ## API
 
 - `GET /api/status` : état local de la session ;
+- `GET /api/update/status` : version installée, release stable disponible et état de maintenance ;
+- `POST /api/update/apply` : installation transactionnelle de la release autorisée ;
 - `POST /api/auth` : connexion avec `{ "username": "...", "password": "..." }` ;
 - `POST /api/logout` : suppression de la session distante ;
 - `POST /api/personal/setup` : configuration initiale du compte personnel ;
@@ -41,12 +43,18 @@ En personnel, `data/pulsenotes.sqlite` conserve les états de lecture, les parta
 
 ## Configuration
 
+Les mises à jour sont activées par défaut. `PULSENOTES_UPDATE_CHECK_TTL` fixe le délai minimal entre deux consultations de GitHub (900 secondes par défaut). En mode personnel, `PULSENOTES_SELFHOST_FORCE_AFTER_DAYS` vaut 15 : la mise à jour reste différable pendant ce délai puis devient obligatoire à la prochaine déconnexion, sans couper une session active.
+
 Les points d’entrée chargent `api/config.php`. Les exemples complets sont disponibles dans `deploy/global/` et `deploy/personal/`.
 
 Variables optionnelles :
 
 - `PULSENOTES_STATS_CACHE_TTL` : durée entre 5 et 300 secondes ;
 - `PULSENOTES_CACHE_DIR` : dossier local du cache.
+- `PULSENOTES_UPDATE_ENABLED` : active ou désactive la détection automatique ;
+- `PULSENOTES_UPDATE_CHECK_TTL` : délai de vérification GitHub, entre 300 et 86 400 secondes ;
+- `PULSENOTES_SELFHOST_FORCE_AFTER_DAYS` : délai personnel avant obligation à la déconnexion, entre 1 et 90 jours ;
+- `PULSENOTES_UPDATE_TIMEOUT` : durée maximale d’une installation, entre 60 et 900 secondes.
 
 ## Tests
 
@@ -57,4 +65,4 @@ cd /mnt/d/Desktop/PulseNotes/php
 php tests/router_test.php
 ```
 
-Les tests couvrent la séparation des modes, les accès personnels, la restauration CAS, l’expiration complète, le cache, les documents officiels, le chiffrement des états, le rapprochement d’une note et le cycle des partages publics.
+Les tests couvrent la séparation des modes, la politique des mises à jour, les accès personnels, la restauration CAS, l’expiration complète, le cache, les documents officiels, le chiffrement des états, le rapprochement d’une note et le cycle des partages publics.

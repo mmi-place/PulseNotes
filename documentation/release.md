@@ -65,7 +65,7 @@ output/
 └── pulsenotes-personal.zip.sha256
 ```
 
-Chaque ZIP doit contenir `index.html`, `assets/`, `api/index.php`, `api/router.php`, `api/config.php`, `api/update.sh` et les règles `.htaccess`. Le `config.php` livré contient seulement des valeurs à remplacer, jamais un secret réel. L’édition personnelle contient aussi la protection de `api/data/`.
+Chaque ZIP doit contenir `index.html`, `assets/`, `api/index.php`, `api/router.php`, `api/updater.php`, `api/version.json`, `api/config.php`, `api/update.sh` et les règles `.htaccess`. Le `config.php` livré contient seulement des valeurs à remplacer, jamais un secret réel. Les dossiers persistants `api/data/` et `api/runtime/` sont protégés contre l’accès web.
 
 ## Publication
 

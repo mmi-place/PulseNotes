@@ -61,13 +61,15 @@ PULSENOTES_RELEASE_HASH_URL="https://example.org/pulsenotes-personal.zip.sha256"
 
 ### Mise à jour personnelle
 
-Le paquet personnel contient `api/update.sh`. Le script télécharge la dernière Release GitHub et préserve `api/config.php` ainsi que `api/data/`, qui contient la base SQLite.
+PulseNotes vérifie naturellement les releases stables lors de son utilisation, au maximum une fois toutes les quinze minutes. Après la connexion locale, une popup propose la nouvelle version. Elle peut être reportée pendant quinze jours à compter de sa publication. Une fois ce délai passé, la session en cours n’est pas interrompue, mais la mise à jour devient obligatoire dès la déconnexion ou l’expiration de la session.
+
+L’installation est réalisée en PHP avec cURL et ZipArchive. Elle préserve `api/config.php`, `api/data/` et la base SQLite. Aucun cron n’est nécessaire. Le script `api/update.sh` reste disponible comme solution de secours administrateur.
 
 Avant une mise à jour :
 
 1. sauvegarder le dossier de l’installation ;
 2. vérifier l’URL et l’empreinte de la nouvelle archive ;
-3. exécuter l’updater depuis le compte d’hébergement ;
+3. utiliser la popup ou, en secours, exécuter l’updater depuis le compte d’hébergement ;
 4. contrôler `/api/status` et ouvrir l’application.
 
 ## Installation globale
@@ -76,7 +78,7 @@ Le service global public prévu pour PulseNotes est : <https://pulsenotes.mmi.p
 
 Prérequis serveur :
 
-- PHP 8.1 ou supérieur avec `curl`, `dom`, `libxml`, `session` et le pilote PDO de la base ;
+- PHP 8.1 ou supérieur avec `curl`, `zip`, `dom`, `libxml`, `session` et le pilote PDO de la base ;
 - PHP 8.1 ou supérieur avec `imagick` pour les images PNG de partage ;
 - MySQL ou PostgreSQL ;
 - HTTPS obligatoire ;
@@ -118,7 +120,9 @@ Elle doit rester secrète, stable et différente entre deux installations. La pe
 
 ### Mise à jour globale
 
-Le paquet global contient aussi `api/update.sh`. Il remplace le frontend et le code PHP, mais conserve `api/config.php` et ne touche pas à la base distante.
+Le premier accès qui détecte une nouvelle release stable déclenche automatiquement la mise à jour. Pendant l’opération, toutes les interfaces affichent un écran de maintenance demandant de patienter quelques minutes. La configuration et la base distante sont conservées. En cas d’échec, l’ancienne version est restaurée et une temporisation empêche les tentatives en boucle.
+
+Ce mécanisme est déclenché par le trafic normal et ne nécessite aucune tâche cron. `api/update.sh` reste disponible comme solution de secours :
 
 ```bash
 cd /chemin/du/site/api
@@ -133,13 +137,7 @@ Pour utiliser un serveur de versions différent :
 PULSENOTES_RELEASE_URL="https://releases.example.org/pulsenotes-global.zip" ./update.sh
 ```
 
-Une automatisation facultative peut être ajoutée dans cPanel avec une tâche cron quotidienne :
-
-```cron
-17 4 * * * /home/COMPTE/pulsenotes/api/update.sh >> /home/COMPTE/logs/pulsenotes-update.log 2>&1
-```
-
-Une mise à jour manuelle après sauvegarde reste plus prudente. L’empreinte SHA-256 vérifie le téléchargement, mais ne remplace pas une signature cryptographique indépendante du serveur de publication.
+L’empreinte SHA-256 publiée et le digest de l’asset GitHub sont vérifiés avant l’installation. L’updater refuse les rétrogradations, les redirections non autorisées, les chemins ZIP dangereux et les exécutions simultanées.
 
 ## Vérification après installation
 

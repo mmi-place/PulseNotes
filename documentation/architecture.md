@@ -29,6 +29,9 @@ Le routeur `php/router.php` gère :
 - les sessions et les liens publics des installations personnelles ;
 - le téléchargement des documents officiels.
 - la route courte `/install.sh` du service global, qui relaie l’installateur personnel.
+- la détection et l’installation transactionnelle des releases stables GitHub.
+
+L’updater PHP prépare et vérifie une archive dans un dossier voisin, conserve la configuration et les données, puis échange les dossiers. Un verrou empêche les installations concurrentes et une sauvegarde permet de restaurer la version précédente. Le dossier `api/runtime/`, inaccessible depuis le web, conserve le cache de vérification et l’état de maintenance.
 
 ### Stockage
 

@@ -2,6 +2,8 @@
 
 Cette publication contient les paquets prêts à déployer pour les deux éditions de PulseNotes.
 
+À partir de la version 0.4.0, PulseNotes vérifie naturellement les releases stables sans cron. L’édition personnelle propose la mise à jour après connexion et l’impose à la déconnexion après quinze jours. L’édition globale installe automatiquement la nouvelle version sous écran de maintenance.
+
 ## Archives
 
 - `pulsenotes-global.zip` installe l’édition partagée, prévue pour `https://pulsenotes.mmi.place` ou pour un serveur administré avec MySQL/PostgreSQL.

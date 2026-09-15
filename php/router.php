@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+require_once __DIR__ . '/updater.php';
+
 const CAS_ORIGIN = 'https://cas2.uvsq.fr';
 const CAS_LOGIN = 'https://cas2.uvsq.fr/login';
 const BULLETINS_ORIGIN = 'https://bulletins.iut-velizy.uvsq.fr';
@@ -403,6 +405,55 @@ function respond(int $status, array $payload): never
     header('Cache-Control: no-store');
     echo json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
     exit;
+}
+
+function updateCsrfToken(): string
+{
+    $token = (string) ($_SESSION['updateCsrfToken'] ?? '');
+    if (strlen($token) < 32) {
+        $token = bin2hex(random_bytes(32));
+        $_SESSION['updateCsrfToken'] = $token;
+    }
+    return $token;
+}
+
+function assertUpdateCsrfToken(): void
+{
+    $expected = (string) ($_SESSION['updateCsrfToken'] ?? '');
+    $provided = trim((string) ($_SERVER['HTTP_X_PULSENOTES_UPDATE_TOKEN'] ?? ''));
+    if ($expected === '' || $provided === '' || !hash_equals($expected, $provided)) {
+        throw new InvalidArgumentException('Jeton de mise à jour invalide. Rechargez la page.');
+    }
+}
+
+/** @return array<string,mixed> */
+function updateStatusPayload(bool $forceCheck = false): array
+{
+    $connected = !empty($_SESSION['remoteCookies']);
+    try {
+        $status = publicUpdateStatus($connected, $forceCheck);
+    } catch (Throwable $error) {
+        error_log($error->__toString());
+        $status = [
+            'enabled' => false,
+            'available' => false,
+            'required' => false,
+            'mandatoryOnLogout' => false,
+            'maintenance' => false,
+            'phase' => 'idle',
+            'currentVersion' => installedReleaseMetadata()['version'],
+            'latestVersion' => '',
+            'publishedAt' => 0,
+            'forceAfter' => null,
+            'supported' => false,
+            'supportError' => 'Le stockage local des mises à jour n’est pas accessible.',
+            'checkFailed' => true,
+        ];
+    }
+    if (!empty($status['available']) || !empty($status['maintenance'])) {
+        $status['token'] = updateCsrfToken();
+    }
+    return $status;
 }
 
 function respondInstallerScript(): never
@@ -1207,6 +1258,17 @@ $route = parse_url((string) ($_SERVER['REQUEST_URI'] ?? '/'), PHP_URL_PATH) ?: '
 $method = strtoupper((string) ($_SERVER['REQUEST_METHOD'] ?? 'GET'));
 
 try {
+    try { $maintenance = updateMaintenanceState(); } catch (Throwable) { $maintenance = null; }
+    $maintenanceRoute = in_array($route, ['/api/status', '/api/update/status', '/api/update/apply'], true);
+    if ($maintenance !== null && !$maintenanceRoute) {
+        respond(503, [
+            'ok' => false,
+            'maintenance' => true,
+            'retryAfter' => 4,
+            'error' => 'PulseNotes est en cours de mise à jour. Veuillez patienter quelques minutes.',
+        ]);
+    }
+
     if ($route === '/install.sh' && $method === 'GET') {
         if (deploymentMode() !== 'global') respond(404, ['ok' => false, 'error' => 'Cette route est disponible uniquement sur le service global.']);
         respondInstallerScript();
@@ -1253,6 +1315,7 @@ try {
 
     if ($route === '/api/status' && $method === 'GET') {
         $account = personalAccount();
+        $update = updateStatusPayload();
         respond(200, [
             'ok' => true,
             'connected' => !empty($_SESSION['remoteCookies']),
@@ -1263,7 +1326,35 @@ try {
             'unlockRequired' => deploymentMode() === 'selfhosted' && $account !== null && empty($_SESSION['remoteCookies']),
             'authMethod' => (string) ($account['auth_method'] ?? ''),
             'credentialInvalid' => !empty($account['credential_invalid']),
+            'update' => $update,
         ]);
+    }
+
+    if ($route === '/api/update/status' && $method === 'GET') {
+        respond(200, ['ok' => true, 'update' => updateStatusPayload()]);
+    }
+
+    if ($route === '/api/update/apply' && $method === 'POST') {
+        jsonInput();
+        assertUpdateCsrfToken();
+        $update = updateStatusPayload();
+        if (!empty($update['maintenance'])) {
+            respond(202, ['ok' => true, 'update' => $update]);
+        }
+        if (empty($update['available'])) throw new InvalidArgumentException('Aucune mise à jour n’est disponible.');
+        if (empty($update['supported'])) throw new InvalidArgumentException((string) ($update['supportError'] ?? 'Cet hébergement ne permet pas la mise à jour automatique.'));
+        $connected = !empty($_SESSION['remoteCookies']);
+        $authorized = deploymentMode() === 'global' || $connected || !empty($update['required']);
+        if (!$authorized) throw new AuthenticationRequired('Déverrouillez votre installation avant de la mettre à jour.');
+        try {
+            unset($_SESSION['updateCsrfToken']);
+            session_write_close();
+            $result = installAvailableUpdate();
+            respond(200, ['ok' => true, 'data' => $result]);
+        } catch (Throwable $error) {
+            error_log($error->__toString());
+            respond(500, ['ok' => false, 'updateFailed' => true, 'error' => 'La mise à jour a échoué. La version précédente reste active.']);
+        }
     }
 
     if ($route === '/api/personal/setup' && $method === 'POST') {

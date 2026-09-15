@@ -5,4 +5,6 @@ return [
     'PULSENOTES_DATABASE_DSN' => 'mysql:host=localhost;dbname=pulsenotes;charset=utf8mb4',
     'PULSENOTES_DATABASE_USER' => 'pulsenotes',
     'PULSENOTES_DATABASE_PASSWORD' => 'CHANGEZ_CE_MOT_DE_PASSE',
+    'PULSENOTES_UPDATE_ENABLED' => 'true',
+    'PULSENOTES_UPDATE_CHECK_TTL' => '900',
 ];

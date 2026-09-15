@@ -3,16 +3,34 @@ import { demoData } from './demo';
 import { academicYear, yearScopeFor } from './scope';
 
 export type PersonalAuthMethod = 'pin4' | 'pin8' | 'pattern' | 'password';
-type ProxyEnvelope<T = unknown> = { ok: boolean; status?: number; data?: T; text?: string | null; connected?: boolean; username?: string; deploymentMode?: 'global' | 'selfhosted'; instanceName?: string; authRequired?: boolean; setupRequired?: boolean; unlockRequired?: boolean; authMethod?: PersonalAuthMethod | ''; credentialInvalid?: boolean; error?: string };
+export type AppUpdateStatus = {
+  enabled: boolean;
+  available: boolean;
+  required: boolean;
+  mandatoryOnLogout: boolean;
+  maintenance: boolean;
+  phase: 'idle' | 'download' | 'verification' | 'preparation' | 'installation' | string;
+  currentVersion: string;
+  latestVersion: string;
+  publishedAt: number;
+  forceAfter: number | null;
+  supported: boolean;
+  supportError: string;
+  checkFailed: boolean;
+  token?: string;
+};
+type ProxyEnvelope<T = unknown> = { ok: boolean; status?: number; data?: T; text?: string | null; connected?: boolean; username?: string; deploymentMode?: 'global' | 'selfhosted'; instanceName?: string; authRequired?: boolean; setupRequired?: boolean; unlockRequired?: boolean; authMethod?: PersonalAuthMethod | ''; credentialInvalid?: boolean; maintenance?: boolean; retryAfter?: number; update?: AppUpdateStatus; updateFailed?: boolean; error?: string };
 
 export class ProxyError extends Error {
   authRequired: boolean;
   credentialInvalid: boolean;
-  constructor(message: string, authRequired = false, credentialInvalid = false) {
+  maintenance: boolean;
+  constructor(message: string, authRequired = false, credentialInvalid = false, maintenance = false) {
     super(message);
     this.name = 'ProxyError';
     this.authRequired = authRequired;
     this.credentialInvalid = credentialInvalid;
+    this.maintenance = maintenance;
   }
 }
 
@@ -26,15 +44,31 @@ async function proxyFetch<T>(path: string, init?: RequestInit): Promise<ProxyEnv
   const payload = await response.json().catch(() => ({ ok: false, error: 'Réponse PHP invalide.' })) as ProxyEnvelope<T>;
   if (!response.ok || !payload.ok) {
     const authRequired = response.status === 401 || !!payload.authRequired;
+    const maintenance = response.status === 503 && !!payload.maintenance;
     if (authRequired) window.dispatchEvent(new CustomEvent('pulsenotes:auth-required', { detail: { credentialInvalid: !!payload.credentialInvalid } }));
-    throw new ProxyError(payload.error || `Erreur proxy HTTP ${response.status}`, authRequired, !!payload.credentialInvalid);
+    if (maintenance) window.dispatchEvent(new CustomEvent('pulsenotes:maintenance'));
+    throw new ProxyError(payload.error || `Erreur proxy HTTP ${response.status}`, authRequired, !!payload.credentialInvalid, maintenance);
   }
   return payload;
 }
 
 export async function getProxyStatus() {
   const response = await proxyFetch('/api/status');
-  return { connected: !!response.connected, username: response.username || '', deploymentMode: response.deploymentMode || 'selfhosted', instanceName: response.instanceName || 'Serveur personnel', setupRequired: !!response.setupRequired, unlockRequired: !!response.unlockRequired, authMethod: (response.authMethod || '') as PersonalAuthMethod | '', credentialInvalid: !!response.credentialInvalid };
+  return { connected: !!response.connected, username: response.username || '', deploymentMode: response.deploymentMode || 'selfhosted', instanceName: response.instanceName || 'Serveur personnel', setupRequired: !!response.setupRequired, unlockRequired: !!response.unlockRequired, authMethod: (response.authMethod || '') as PersonalAuthMethod | '', credentialInvalid: !!response.credentialInvalid, update: response.update || null };
+}
+
+export async function getUpdateStatus() {
+  const response = await proxyFetch('/api/update/status');
+  return response.update || null;
+}
+
+export async function applyAppUpdate(token: string) {
+  const response = await proxyFetch<{ version: string }>('/api/update/apply', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'X-PulseNotes-Update-Token': token },
+    body: '{}'
+  });
+  return response.data?.version || '';
 }
 
 export async function loginProxy(username: string, password: string) {

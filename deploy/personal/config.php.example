@@ -3,4 +3,7 @@ return [
     'PULSENOTES_INSTANCE_NAME' => 'Mon PulseNotes',
     'PULSENOTES_APP_KEY' => 'CHANGEZ_CETTE_CLE_ALEATOIRE',
     'PULSENOTES_SQLITE_PATH' => __DIR__ . '/data/pulsenotes.sqlite',
+    'PULSENOTES_UPDATE_ENABLED' => 'true',
+    'PULSENOTES_UPDATE_CHECK_TTL' => '900',
+    'PULSENOTES_SELFHOST_FORCE_AFTER_DAYS' => '15',
 ];

@@ -2,9 +2,11 @@ import { lazy, StrictMode, Suspense, useEffect, useMemo, useRef, useState } from
 import { createRoot } from 'react-dom/client';
 import { AuthGateway } from './components/AuthGateway';
 import { Layout } from './components/Layout';
+import { MaintenanceScreen } from './components/MaintenanceScreen';
 import { SkeletonPage, StateMessage } from './components/UI';
+import { UpdateDialog } from './components/UpdateDialog';
 import { SharedNote } from './pages/SharedNote';
-import { getProxyStatus, loginProxy, logoutProxy, markEvaluationsSeen, ProxyError, loadStudentData, setEvaluationDebugState, setupPersonalProxy, syncEvaluationStates, unlockPersonalProxy, updatePersonalCredential, updatePersonalSecurity, type PersonalAuthMethod } from './lib/api';
+import { applyAppUpdate, getProxyStatus, getUpdateStatus, loginProxy, logoutProxy, markEvaluationsSeen, ProxyError, loadStudentData, setEvaluationDebugState, setupPersonalProxy, syncEvaluationStates, unlockPersonalProxy, updatePersonalCredential, updatePersonalSecurity, type AppUpdateStatus, type PersonalAuthMethod } from './lib/api';
 import { aggregateReports, defaultScopeFor, labelForScope, reportsForScope, type StudyScope } from './lib/scope';
 import type { EvaluationChangeState, StudentData, ViewId } from './types';
 import './styles/tokens.css';
@@ -49,7 +51,20 @@ function App() {
   const [changeStates, setChangeStates] = useState<Record<string, EvaluationChangeState>>({});
   const [notesQuery, setNotesQuery] = useState('');
   const [notesTargetId, setNotesTargetId] = useState<string | null>(null);
+  const [appUpdate, setAppUpdate] = useState<AppUpdateStatus | null>(null);
+  const [updateDialogOpen, setUpdateDialogOpen] = useState(false);
+  const [dismissedUpdateVersion, setDismissedUpdateVersion] = useState('');
+  const [updateLoading, setUpdateLoading] = useState(false);
+  const [maintenance, setMaintenance] = useState(false);
+  const [updateError, setUpdateError] = useState('');
+  const updateRunning = useRef(false);
   const scopeInitialized = useRef(initialParameters.has('scope'));
+
+  const refreshUpdateStatus = async () => {
+    const next = await getUpdateStatus();
+    setAppUpdate(next);
+    return next;
+  };
 
   const load = async () => {
     setLoading(true);
@@ -97,6 +112,8 @@ function App() {
         setPersonalSetupRequired(status.setupRequired);
         setPersonalAuthMethod(status.authMethod);
         setPersonalCredentialInvalid(status.credentialInvalid);
+        setAppUpdate(status.update);
+        setMaintenance(!!status.update?.maintenance);
         if (status.connected) await load();
         else {
           setAuthRequired(true);
@@ -120,6 +137,12 @@ function App() {
   }, []);
 
   useEffect(() => {
+    const enterMaintenance = () => setMaintenance(true);
+    window.addEventListener('pulsenotes:maintenance', enterMaintenance);
+    return () => window.removeEventListener('pulsenotes:maintenance', enterMaintenance);
+  }, []);
+
+  useEffect(() => {
     const url = new URL(window.location.href);
     url.searchParams.set('view', view);
     url.searchParams.set('scope', scope);
@@ -138,6 +161,7 @@ function App() {
       setAuthRequired(true);
       setPersonalCredentialInvalid(!!detail?.credentialInvalid);
       setError(detail?.credentialInvalid ? 'Le mot de passe UVSQ enregistré doit être mis à jour.' : 'Votre session Bulletins a expiré. Reconnectez-vous pour continuer.');
+      void refreshUpdateStatus().catch(() => { /* Une panne GitHub ne bloque pas la reconnexion. */ });
     };
     window.addEventListener('pulsenotes:auth-required', requireAuthentication);
     return () => window.removeEventListener('pulsenotes:auth-required', requireAuthentication);
@@ -149,6 +173,7 @@ function App() {
     try {
       setUsername(await loginProxy(nextUsername, password));
       await load();
+      try { await refreshUpdateStatus(); } catch { /* La connexion ne dépend pas de GitHub. */ }
     } catch (cause) {
       setError((cause as Error).message);
       setAuthRequired(true);
@@ -163,18 +188,21 @@ function App() {
       setAuthRequired(true);
       if (deploymentMode === 'selfhosted') setPersonalSetupRequired(false);
       setError('');
+      setUpdateDialogOpen(false);
+      setDismissedUpdateVersion('');
     }
+    try { await refreshUpdateStatus(); } catch { /* La connexion reste utilisable si GitHub est indisponible. */ }
   };
 
   const personalSetup = async (nextUsername: string, password: string, method: PersonalAuthMethod, secret: string) => {
     setAuthLoading(true); setError('');
-    try { await setupPersonalProxy(nextUsername, password, method, secret); setUsername(nextUsername); setPersonalAuthMethod(method); setPersonalSetupRequired(false); setPersonalCredentialInvalid(false); await load(); }
+    try { await setupPersonalProxy(nextUsername, password, method, secret); setUsername(nextUsername); setPersonalAuthMethod(method); setPersonalSetupRequired(false); setPersonalCredentialInvalid(false); await load(); try { await refreshUpdateStatus(); } catch { /* La connexion ne dépend pas de GitHub. */ } }
     catch (cause) { setError((cause as Error).message); setAuthRequired(true); }
     finally { setAuthLoading(false); }
   };
   const personalUnlock = async (secret: string) => {
     setAuthLoading(true); setError('');
-    try { await unlockPersonalProxy(secret); setPersonalCredentialInvalid(false); await load(); }
+    try { await unlockPersonalProxy(secret); setPersonalCredentialInvalid(false); await load(); try { await refreshUpdateStatus(); } catch { /* La connexion ne dépend pas de GitHub. */ } }
     catch (cause) { const reason = cause as ProxyError; setPersonalCredentialInvalid(reason.credentialInvalid); setError(reason.message); setAuthRequired(true); }
     finally { setAuthLoading(false); }
   };
@@ -184,6 +212,64 @@ function App() {
     catch (cause) { setError((cause as Error).message); setAuthRequired(true); }
     finally { setAuthLoading(false); }
   };
+
+  const installUpdate = async () => {
+    if (!appUpdate?.token || updateRunning.current) return;
+    updateRunning.current = true;
+    setUpdateLoading(true);
+    setUpdateError('');
+    setMaintenance(true);
+    try {
+      const version = await applyAppUpdate(appUpdate.token);
+      const url = new URL(window.location.href);
+      url.searchParams.set('updated', version || String(Date.now()));
+      window.location.replace(url);
+    } catch (cause) {
+      const message = (cause as Error).message || 'La mise à jour a échoué.';
+      setUpdateError(message);
+      if (deploymentMode === 'selfhosted' && !appUpdate.required) {
+        setMaintenance(false);
+        setUpdateDialogOpen(true);
+      }
+      try { await refreshUpdateStatus(); } catch { /* L’écran permet une nouvelle tentative. */ }
+    } finally {
+      updateRunning.current = false;
+      setUpdateLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (!appUpdate) return;
+    if (appUpdate.maintenance) setMaintenance(true);
+    const disconnected = authRequired || !data;
+    if (appUpdate.required && (deploymentMode === 'global' || disconnected)) {
+      setMaintenance(true);
+      if (appUpdate.supported && appUpdate.token) void installUpdate();
+      return;
+    }
+    if (deploymentMode === 'selfhosted' && appUpdate.available && !!data && !authRequired && dismissedUpdateVersion !== appUpdate.latestVersion) {
+      setUpdateDialogOpen(true);
+    }
+  }, [appUpdate, authRequired, data, deploymentMode, dismissedUpdateVersion]);
+
+  useEffect(() => {
+    if (!maintenance) return;
+    let active = true;
+    const poll = async () => {
+      try {
+        const next = await getUpdateStatus();
+        if (!active || !next) return;
+        setAppUpdate(next);
+        if (!next.maintenance && !next.available && next.currentVersion) {
+          const url = new URL(window.location.href);
+          url.searchParams.set('updated', next.currentVersion);
+          window.location.replace(url);
+        }
+      } catch { /* Le serveur peut être brièvement indisponible pendant l’échange atomique. */ }
+    };
+    const timer = window.setInterval(() => void poll(), 4_000);
+    return () => { active = false; window.clearInterval(timer); };
+  }, [maintenance]);
 
   const scopeLabel = labelForScope(data?.semesters || [], scope);
   const selectedReports = useMemo(() => reportsForScope(data?.reports || [], data?.semesters || [], scope), [data, scope]);
@@ -218,6 +304,8 @@ function App() {
     if (!isDemo) void setEvaluationDebugState(id, state);
   };
 
+  if (maintenance) return <MaintenanceScreen update={appUpdate} error={updateError} onRetry={() => void installUpdate()} />;
+
   if (authRequired) return <AuthGateway serverMode={deploymentMode} instanceName={instanceName} initialUsername={username} displayName={displayName} error={error} loading={authLoading} setupRequired={personalSetupRequired} credentialInvalid={personalCredentialInvalid} authMethod={personalAuthMethod} onSubmit={login} onPersonalSetup={personalSetup} onPersonalUnlock={personalUnlock} onPersonalCredential={personalCredential} />;
 
   let content = loading
@@ -232,7 +320,10 @@ function App() {
               ? <Analyses report={report} onView={setView} onNotesFilter={value => onNotesFilter(value)} onOpenEvaluation={openEvaluation} scopeLabel={scopeLabel} />
               : <Synthesis report={report} reports={selectedReports} annual={scope.startsWith('year:')} scopeLabel={scopeLabel} changeStates={changeStates} onSeen={onSeen} onSeenMany={onSeenMany} onView={setView} onNotesFilter={value => onNotesFilter(value)} onOpenEvaluation={openEvaluation} />;
 
-  return <Layout data={data} activeView={view} activeSemester={scope} scopeLabel={scopeLabel} username={isDemo ? 'Mode démo' : username} displayName={displayName} connected={isDemo || (!!data && !authRequired)} loading={loading} deploymentMode={deploymentMode} personalAuthMethod={personalAuthMethod || 'password'} onView={setView} onSemesterChange={selectScope} onNotesSearch={(value, nextScope) => onNotesFilter(value, nextScope, true)} onLogout={() => void logout()} onUpdateCredential={async password => { await updatePersonalCredential(password); }} onUpdateSecurity={async (method, secret) => { await updatePersonalSecurity(method, secret); setPersonalAuthMethod(method); }}><Suspense fallback={<SkeletonPage variant={view} />}>{content}</Suspense></Layout>;
+  return <>
+    <Layout data={data} activeView={view} activeSemester={scope} scopeLabel={scopeLabel} username={isDemo ? 'Mode démo' : username} displayName={displayName} connected={isDemo || (!!data && !authRequired)} loading={loading} deploymentMode={deploymentMode} personalAuthMethod={personalAuthMethod || 'password'} onView={setView} onSemesterChange={selectScope} onNotesSearch={(value, nextScope) => onNotesFilter(value, nextScope, true)} onLogout={() => void logout()} onUpdateCredential={async password => { await updatePersonalCredential(password); }} onUpdateSecurity={async (method, secret) => { await updatePersonalSecurity(method, secret); setPersonalAuthMethod(method); }}><Suspense fallback={<SkeletonPage variant={view} />}>{content}</Suspense></Layout>
+    {updateDialogOpen && appUpdate?.available && <UpdateDialog update={appUpdate} loading={updateLoading} error={updateError} onInstall={() => void installUpdate()} onLater={() => { setDismissedUpdateVersion(appUpdate.latestVersion); setUpdateDialogOpen(false); setUpdateError(''); }} />}
+  </>;
 }
 
 createRoot(document.getElementById('root')!).render(<StrictMode>{shareToken ? <SharedNote token={shareToken} /> : <App />}</StrictMode>);

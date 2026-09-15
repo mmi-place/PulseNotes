@@ -92,10 +92,11 @@ APP_ARCHIVE_FILE=""
 APP_CHECKSUM_FILE=""
 PRESERVED_CONFIG_FILE=""
 PRESERVED_DATA_DIR=""
+PRESERVED_RUNTIME_DIR=""
 PHP_SELECTOR_VERSION=""
 PHP_SELECTOR_CGI=""
 PHP_EXTENSIONS_ACTIVE=0
-PHP_EXTENSIONS_TOTAL=7
+PHP_EXTENSIONS_TOTAL=8
 PHP_EXTENSIONS_INACTIVE=""
 SECURITY_TOKEN=""
 MAIN_DOMAIN=""
@@ -1138,7 +1139,7 @@ configure_php_extensions() {
   local module_state=""
   local loaded_after=""
   local inactive_list=""
-  local -a required_extensions=(curl dom imagick libxml session pdo pdo_sqlite)
+  local -a required_extensions=(curl dom imagick libxml session pdo pdo_sqlite zip)
 
   PHP_EXTENSIONS_ACTIVE=0
   PHP_EXTENSIONS_TOTAL="${#required_extensions[@]}"
@@ -1168,7 +1169,7 @@ configure_php_extensions() {
 
   # Sans binaire PHP, impossible de vérifier. On journalise puis on continue.
   if [ -z "$PHP_SELECTOR_CGI" ] || [ ! -x "$PHP_SELECTOR_CGI" ]; then
-    PHP_EXTENSIONS_INACTIVE="curl, dom, imagick, libxml, session, pdo, pdo_sqlite"
+    PHP_EXTENSIONS_INACTIVE="curl, dom, imagick, libxml, session, pdo, pdo_sqlite, zip"
     debug "Extensions PHP : aucun binaire PHP exécutable trouvé ; vérification ignorée"
     return 0
   fi
@@ -1258,6 +1259,7 @@ APP_ARCHIVE_FILE="$TMP_DIR/pulsenotes-personal.zip"
 APP_CHECKSUM_FILE="$TMP_DIR/pulsenotes-personal.zip.sha256"
 PRESERVED_CONFIG_FILE="$TMP_DIR/config.php.preserved"
 PRESERVED_DATA_DIR="$TMP_DIR/data.preserved"
+PRESERVED_RUNTIME_DIR="$TMP_DIR/runtime.preserved"
 
 tui_start
 
@@ -1507,6 +1509,13 @@ if [ -d "$APP_DIR/api/data" ]; then
   cp -a "$APP_DIR/api/data/." "$PRESERVED_DATA_DIR/" 2>/dev/null || true
   debug "Données SQLite existantes conservées."
 fi
+if [ -d "$APP_DIR/api/runtime" ]; then
+  mkdir -p "$PRESERVED_RUNTIME_DIR"
+  if [ -f "$APP_DIR/api/runtime/update-state.json" ]; then
+    cp -p "$APP_DIR/api/runtime/update-state.json" "$PRESERVED_RUNTIME_DIR/update-state.json"
+  fi
+  debug "État de mise à jour existant conservé."
+fi
 
 debug "Suppression du dossier : $APP_DIR"
 rm -rf -- "$APP_DIR"
@@ -1537,7 +1546,7 @@ set_status "Sous-domaine créé." 57
 
 set_step 7 "Extensions PHP" 60 "Vérification et activation des extensions PHP requises..."
 
-set_status "Vérification de curl, dom, imagick, libxml, session, pdo et pdo_sqlite..." 61
+set_status "Vérification de curl, dom, imagick, libxml, session, pdo, pdo_sqlite et zip..." 61
 spinner_start "Configuration des extensions PHP..."
 configure_php_extensions
 spinner_stop
@@ -1565,6 +1574,8 @@ for required_file in \
   "$APP_DIR/.htaccess" \
   "$APP_DIR/api/index.php" \
   "$APP_DIR/api/router.php" \
+  "$APP_DIR/api/updater.php" \
+  "$APP_DIR/api/version.json" \
   "$APP_DIR/api/config.php" \
   "$APP_DIR/api/.htaccess" \
   "$APP_DIR/api/update.sh"
@@ -1590,12 +1601,20 @@ if [ -d "$PRESERVED_DATA_DIR" ]; then
   cp -a "$PRESERVED_DATA_DIR/." "$APP_DIR/api/data/" 2>/dev/null || true
   debug "Base SQLite et données personnelles restaurées."
 fi
+mkdir -p "$APP_DIR/api/runtime"
+if [ -d "$PRESERVED_RUNTIME_DIR" ]; then
+  if [ -f "$PRESERVED_RUNTIME_DIR/update-state.json" ]; then
+    cp -p "$PRESERVED_RUNTIME_DIR/update-state.json" "$APP_DIR/api/runtime/update-state.json"
+  fi
+  debug "État de mise à jour restauré."
+fi
 
 # Permissions adaptées à un hébergement cPanel/PHP exécuté sous l’utilisateur.
 find "$APP_DIR" -type d -exec chmod 755 {} +
 find "$APP_DIR" -type f -exec chmod 644 {} +
 chmod 600 "$APP_DIR/api/config.php"
 chmod 700 "$APP_DIR/api/data"
+chmod 700 "$APP_DIR/api/runtime"
 chmod 700 "$APP_DIR/api/update.sh"
 
 # Validation locale PHP avant d’exposer le site.
@@ -1605,6 +1624,9 @@ if [ -n "$PHP_SELECTOR_CGI" ] && [ -x "$PHP_SELECTOR_CGI" ]; then
   fi
   if ! "$PHP_SELECTOR_CGI" -l "$APP_DIR/api/router.php" >/dev/null 2>&1; then
     fatal "Le fichier api/router.php de la release contient une erreur PHP."
+  fi
+  if ! "$PHP_SELECTOR_CGI" -l "$APP_DIR/api/updater.php" >/dev/null 2>&1; then
+    fatal "Le fichier api/updater.php de la release contient une erreur PHP."
   fi
 fi
 

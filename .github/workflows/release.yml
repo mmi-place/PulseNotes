@@ -22,6 +22,13 @@ jobs:
           node-version: 20
           cache: npm
           cache-dependency-path: src/package-lock.json
+      - name: Préparer PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.1'
+          extensions: curl, zip, pdo_sqlite
+      - name: Tester le proxy PHP
+        run: php php/tests/router_test.php
       - name: Installer les dépendances
         working-directory: src
         run: npm ci

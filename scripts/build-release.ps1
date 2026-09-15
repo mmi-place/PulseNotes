@@ -3,6 +3,10 @@ $ErrorActionPreference = 'Stop'
 $root = Split-Path -Parent $PSScriptRoot
 $frontend = Join-Path $root 'src'
 $releaseRoot = Join-Path $root 'output'
+$package = Get-Content (Join-Path $frontend 'package.json') -Raw | ConvertFrom-Json
+$version = [string]$package.version
+$commit = if ($env:GITHUB_SHA) { [string]$env:GITHUB_SHA } else { [string](git -C $root rev-parse HEAD) }
+if ($version -notmatch '^\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]+)?$') { throw 'La version du package frontend est invalide.' }
 
 function Get-Sha256([string]$Path) {
     $algorithm = [System.Security.Cryptography.SHA256]::Create()
@@ -28,10 +32,14 @@ foreach ($target in @('global','personal')) {
     New-Item -ItemType Directory -Path (Join-Path $destination 'api') -Force | Out-Null
     Copy-Item (Join-Path $frontend 'dist\*') $destination -Recurse -Force
     Copy-Item (Join-Path $root 'php\router.php') (Join-Path $destination 'api\router.php')
+    Copy-Item (Join-Path $root 'php\updater.php') (Join-Path $destination 'api\updater.php')
     Copy-Item (Join-Path $root "deploy\$target\index.php") (Join-Path $destination 'api\index.php')
     Copy-Item (Join-Path $root "deploy\$target\config.php.example") (Join-Path $destination 'api\config.php')
     Copy-Item (Join-Path $root 'deploy\common\.htaccess') (Join-Path $destination '.htaccess')
     Copy-Item (Join-Path $root 'deploy\common\api.htaccess') (Join-Path $destination 'api\.htaccess')
+    New-Item -ItemType Directory -Path (Join-Path $destination 'api\runtime') -Force | Out-Null
+    Copy-Item (Join-Path $root 'deploy\common\runtime.htaccess') (Join-Path $destination 'api\runtime\.htaccess')
+    @{ version = $version; commit = $commit; mode = $target } | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $destination 'api\version.json') -Encoding utf8
     if ($target -eq 'personal') {
         New-Item -ItemType Directory -Path (Join-Path $destination 'api\data') -Force | Out-Null
         Copy-Item (Join-Path $root 'deploy\common\api.htaccess') (Join-Path $destination 'api\data\.htaccess')

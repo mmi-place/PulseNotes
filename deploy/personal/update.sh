@@ -27,7 +27,10 @@ ACTUAL_HASH="$(sha256sum "$TMP_DIR/release.zip" | awk '{print $1}')"
 unzip -q "$TMP_DIR/release.zip" -d "$TMP_DIR/release"
 test -f "$TMP_DIR/release/index.html"
 test -f "$TMP_DIR/release/api/router.php"
+test -f "$TMP_DIR/release/api/updater.php"
+test -f "$TMP_DIR/release/api/version.json"
 php -l "$TMP_DIR/release/api/router.php" >/dev/null
+php -l "$TMP_DIR/release/api/updater.php" >/dev/null
 cp "$APP_DIR/api/config.php" "$TMP_DIR/config.php"
 mkdir -p "$TMP_DIR/data"
 if [ -d "$APP_DIR/api/data" ]; then cp -a "$APP_DIR/api/data/." "$TMP_DIR/data/"; fi
@@ -35,7 +38,7 @@ mkdir -p "$TMP_DIR/backup"
 cp -a "$APP_DIR/." "$TMP_DIR/backup/"
 ROLLBACK=1
 find "$APP_DIR" -mindepth 1 -maxdepth 1 ! -name api -exec rm -rf -- {} +
-find "$APP_DIR/api" -mindepth 1 -maxdepth 1 ! -name data ! -name config.php -exec rm -rf -- {} +
+find "$APP_DIR/api" -mindepth 1 -maxdepth 1 ! -name data ! -name config.php ! -name runtime -exec rm -rf -- {} +
 cp -a "$TMP_DIR/release/." "$APP_DIR/"
 cp "$TMP_DIR/config.php" "$APP_DIR/api/config.php"
 mkdir -p "$APP_DIR/api/data"
@@ -43,6 +46,7 @@ cp -a "$TMP_DIR/data/." "$APP_DIR/api/data/"
 chmod 600 "$APP_DIR/api/config.php"
 chmod 700 "$APP_DIR/api/data"
 php -l "$APP_DIR/api/index.php" >/dev/null
+php -l "$APP_DIR/api/updater.php" >/dev/null
 test -s "$APP_DIR/index.html"
 ROLLBACK=0
 echo "PulseNotes personnel a été mis à jour. Vos réglages et votre base SQLite sont conservés."

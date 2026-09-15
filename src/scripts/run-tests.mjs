@@ -14,7 +14,6 @@ if (tests.length === 0) {
   process.exit(1);
 }
 
-const tsxCli = fileURLToPath(new URL('node_modules/tsx/dist/cli.mjs', root));
-const result = spawnSync(process.execPath, [tsxCli, '--test', ...tests], { stdio: 'inherit' });
+const result = spawnSync(process.execPath, ['--import', 'tsx', '--test', ...tests], { stdio: 'inherit' });
 
 process.exit(result.status ?? 1);

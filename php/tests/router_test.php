@@ -105,6 +105,49 @@ $tests['sépare les modes global et personnel'] = static function (): void {
     }
 };
 
+$tests['applique le délai de mise à jour personnelle sans interrompre une session'] = static function (): void {
+    $publishedAt = 1_700_000_000;
+    $beforeDeadline = calculateUpdatePolicy('selfhosted', false, true, $publishedAt, 15, $publishedAt + 14 * 86_400);
+    assertSameValue(false, $beforeDeadline['required'], 'Une mise à jour personnelle doit rester différable pendant quinze jours');
+    $connected = calculateUpdatePolicy('selfhosted', true, true, $publishedAt, 15, $publishedAt + 16 * 86_400);
+    assertSameValue(true, $connected['mandatoryOnLogout'], 'Le délai dépassé doit être annoncé pendant la session');
+    assertSameValue(false, $connected['required'], 'Une session personnelle active ne doit jamais être interrompue');
+    $disconnected = calculateUpdatePolicy('selfhosted', false, true, $publishedAt, 15, $publishedAt + 16 * 86_400);
+    assertSameValue(true, $disconnected['required'], 'La mise à jour doit devenir obligatoire après déconnexion');
+};
+
+$tests['force les mises à jour globales et temporise un échec'] = static function (): void {
+    $global = calculateUpdatePolicy('global', true, true, 1_700_000_000, 15, 1_700_000_001);
+    assertSameValue(true, $global['required'], 'Le service global doit imposer une nouvelle version stable');
+    $cooldown = calculateUpdatePolicy('global', false, true, 1_700_000_000, 15, 1_700_000_001, true);
+    assertSameValue(false, $cooldown['required'], 'Un échec ne doit pas créer une boucle de mise à jour');
+};
+
+$tests['refuse une archive de mise à jour avec traversée de dossier'] = static function (): void {
+    if (!class_exists('ZipArchive')) throw new TestSkipped('extension zip absente');
+    $directory = sys_get_temp_dir() . DIRECTORY_SEPARATOR . 'pulsenotes-update-test-' . bin2hex(random_bytes(6));
+    mkdir($directory, 0700, true);
+    $archivePath = $directory . DIRECTORY_SEPARATOR . 'dangerous.zip';
+    $destination = $directory . DIRECTORY_SEPARATOR . 'extracted';
+    mkdir($destination, 0700, true);
+    $archive = new ZipArchive();
+    if ($archive->open($archivePath, ZipArchive::CREATE) !== true) throw new RuntimeException('Impossible de créer l’archive de test.');
+    $archive->addFromString('../escape.txt', 'contenu interdit');
+    $archive->addFromString('index.html', 'test');
+    $archive->addFromString('api/index.php', '<?php');
+    $archive->addFromString('api/router.php', '<?php');
+    $archive->close();
+    try {
+        validateUpdateArchive($archivePath, $destination);
+        throw new RuntimeException('Une traversée ZIP aurait dû être refusée.');
+    } catch (RuntimeException $error) {
+        if (!str_contains($error->getMessage(), 'chemin dangereux')) throw $error;
+        assertSameValue(false, is_file($directory . DIRECTORY_SEPARATOR . 'escape.txt'), 'Aucun fichier ne doit sortir du dossier cible');
+    } finally {
+        updateRemoveTree($directory);
+    }
+};
+
 $tests['valide les quatre accès locaux personnels'] = static function (): void {
     validatePersonalSecret('pin4', '2048');
     validatePersonalSecret('pin8', '20482048');

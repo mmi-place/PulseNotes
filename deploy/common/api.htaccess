@@ -1,4 +1,4 @@
 Options -Indexes
-<FilesMatch "^(config\.php|config\.php\.example|router\.php)$|\.sqlite(?:-shm|-wal)?$">
+<FilesMatch "^(config\.php|config\.php\.example|router\.php|updater\.php|version\.json)$|\.sqlite(?:-shm|-wal)?$">
   Require all denied
 </FilesMatch>
