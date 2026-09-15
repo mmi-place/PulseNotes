@@ -7,7 +7,7 @@
 #   - crée/recrée un sous-domaine et son dossier web ;
 #   - télécharge et valide APP_PHP_URL dès la première étape (échec rapide) ;
 #   - installe ensuite ce modèle PHP dans le dossier web sans le retélécharger ;
-#   - détecte le PHP CloudLinux sélectionné et active/vérifie automatiquement Imagick ;
+#   - détecte le PHP CloudLinux sélectionné et vérifie/active au mieux les extensions PHP requises ;
 #   - réutilise en priorité un certificat FleetSSL/Let’s Encrypt déjà stocké ;
 #   - n’émet un nouveau certificat que si aucun certificat existant n’est trouvé ;
 #   - propose --clean pour supprimer l’installation sans la recréer ;
@@ -93,8 +93,11 @@ DOMAINS_FILE=""
 API_FILE=""
 SSL_FILE=""
 PHP_TEMPLATE_FILE=""
-IMAGICK_PHP_VERSION=""
-IMAGICK_PHP_CGI=""
+PHP_SELECTOR_VERSION=""
+PHP_SELECTOR_CGI=""
+PHP_EXTENSIONS_ACTIVE=0
+PHP_EXTENSIONS_TOTAL=7
+PHP_EXTENSIONS_INACTIVE=""
 SECURITY_TOKEN=""
 MAIN_DOMAIN=""
 TARGET_DOMAIN=""
@@ -978,113 +981,114 @@ download_app_template() {
   return 0
 }
 
-enable_imagick() {
-  local selector_info
-  local imagick_state
-  local imagick_state_after
-  local selector_log
-  local test_file
-  local test_output
+configure_php_extensions() {
+  local selector_info=""
+  local selector_extensions_file="$TMP_DIR/php-selector-extensions.txt"
+  local selector_log=""
+  local module=""
+  local module_state=""
+  local loaded_after=""
+  local inactive_list=""
+  local -a required_extensions=(curl dom imagick libxml session pdo pdo_sqlite)
 
-  if ! command -v selectorctl >/dev/null 2>&1; then
-    debug "Imagick : selectorctl est introuvable"
-    return 1
-  fi
+  PHP_EXTENSIONS_ACTIVE=0
+  PHP_EXTENSIONS_TOTAL="${#required_extensions[@]}"
+  PHP_EXTENSIONS_INACTIVE=""
 
-  selector_info="$(selectorctl --user-current 2>/dev/null || true)"
-  IMAGICK_PHP_VERSION="$(printf '%s\n' "$selector_info" | awk 'NR==1 {print $1}')"
-  IMAGICK_PHP_CGI="$(printf '%s\n' "$selector_info" | awk 'NR==1 {print $3}')"
+  # Détecte d'abord le PHP CloudLinux sélectionné. Si selectorctl n'existe pas,
+  # on tente quand même une vérification avec php-cgi/php, sans rendre l'étape bloquante.
+  if command -v selectorctl >/dev/null 2>&1; then
+    selector_info="$(selectorctl --user-current 2>/dev/null || true)"
+    PHP_SELECTOR_VERSION="$(printf '%s\n' "$selector_info" | awk 'NR==1 {print $1}')"
+    PHP_SELECTOR_CGI="$(printf '%s\n' "$selector_info" | awk 'NR==1 {print $3}')"
 
-  debug "PHP Selector : ${selector_info:-<aucune réponse>}"
-  debug "Version PHP sélectionnée : ${IMAGICK_PHP_VERSION:-<inconnue>}"
-  debug "Binaire PHP CGI : ${IMAGICK_PHP_CGI:-<inconnu>}"
-
-  if [ -z "$IMAGICK_PHP_VERSION" ] || [ -z "$IMAGICK_PHP_CGI" ]; then
-    return 2
-  fi
-
-  if [ ! -x "$IMAGICK_PHP_CGI" ]; then
-    debug "Imagick : binaire PHP CGI non exécutable : $IMAGICK_PHP_CGI"
-    return 3
-  fi
-
-  imagick_state="$(
-    selectorctl --list-user-extensions \
-      --version="$IMAGICK_PHP_VERSION" \
-      --all 2>/dev/null |
-    awk '$2 == "imagick" {print $1; exit}'
-  )"
-
-  debug "État Imagick avant activation : ${imagick_state:-<introuvable>}"
-
-  if [ -z "$imagick_state" ]; then
-    return 4
-  fi
-
-  # Si le module est déjà réellement chargé par le PHP CGI sélectionné,
-  # aucune modification n'est nécessaire.
-  if "$IMAGICK_PHP_CGI" -m 2>/dev/null | grep -qi '^imagick$'; then
-    debug "Imagick est déjà chargé par PHP $IMAGICK_PHP_VERSION"
+    debug "PHP Selector : ${selector_info:-<aucune réponse>}"
+    debug "Version PHP sélectionnée : ${PHP_SELECTOR_VERSION:-<inconnue>}"
+    debug "Binaire PHP CGI : ${PHP_SELECTOR_CGI:-<inconnu>}"
   else
-    selector_log="$TMP_DIR/selectorctl-imagick.log"
-    : > "$selector_log"
+    debug "PHP Selector : selectorctl est introuvable ; activation automatique impossible"
+  fi
 
-    # Dans CageFS, selectorctl agit sur l'utilisateur courant : ne pas passer --user.
-    if ! selectorctl \
-      --enable-user-extensions=imagick \
-      --version="$IMAGICK_PHP_VERSION" \
-      >"$selector_log" 2>&1
-    then
+  # Repli non bloquant si CloudLinux ne fournit pas un chemin exploitable.
+  if [ -z "$PHP_SELECTOR_CGI" ] || [ ! -x "$PHP_SELECTOR_CGI" ]; then
+    PHP_SELECTOR_CGI="$(command -v php-cgi 2>/dev/null || command -v php 2>/dev/null || true)"
+    if [ -n "$PHP_SELECTOR_CGI" ]; then
+      debug "PHP de repli utilisé pour la vérification : $PHP_SELECTOR_CGI"
+    fi
+  fi
+
+  # Sans binaire PHP, impossible de vérifier. On journalise puis on continue.
+  if [ -z "$PHP_SELECTOR_CGI" ] || [ ! -x "$PHP_SELECTOR_CGI" ]; then
+    PHP_EXTENSIONS_INACTIVE="curl, dom, imagick, libxml, session, pdo, pdo_sqlite"
+    debug "Extensions PHP : aucun binaire PHP exécutable trouvé ; vérification ignorée"
+    return 0
+  fi
+
+  : > "$selector_extensions_file"
+  if command -v selectorctl >/dev/null 2>&1 && [ -n "$PHP_SELECTOR_VERSION" ]; then
+    selectorctl --list-user-extensions \
+      --version="$PHP_SELECTOR_VERSION" \
+      --all >"$selector_extensions_file" 2>/dev/null || true
+  fi
+
+  for module in "${required_extensions[@]}"; do
+    # La vérité finale est ce que charge réellement le PHP sélectionné.
+    if "$PHP_SELECTOR_CGI" -m 2>/dev/null | grep -Fqix "$module"; then
+      PHP_EXTENSIONS_ACTIVE=$((PHP_EXTENSIONS_ACTIVE + 1))
+      debug "Extension PHP $module : déjà active"
+      continue
+    fi
+
+    module_state=""
+    if [ -s "$selector_extensions_file" ]; then
+      module_state="$(awk -v ext="$module" '$2 == ext {print $1; exit}' "$selector_extensions_file")"
+    fi
+
+    if [ -z "$module_state" ]; then
+      debug "Extension PHP $module : non chargée et non proposée par PHP Selector ; ignorée"
+    else
+      selector_log="$TMP_DIR/selectorctl-${module}.log"
+      : > "$selector_log"
+      debug "Extension PHP $module : tentative d’activation (état Selector : $module_state)"
+
+      # Dans CageFS, selectorctl agit sur l'utilisateur courant : ne pas passer --user.
+      selectorctl \
+        --enable-user-extensions="$module" \
+        --version="$PHP_SELECTOR_VERSION" \
+        >"$selector_log" 2>&1 || true
+
       if [ "$DEBUG" = "1" ] && [ -s "$selector_log" ]; then
         while IFS= read -r line; do
-          debug "selectorctl : $line"
+          debug "selectorctl/$module : $line"
         done < "$selector_log"
       fi
-      return 5
     fi
 
-    if [ "$DEBUG" = "1" ] && [ -s "$selector_log" ]; then
-      while IFS= read -r line; do
-        debug "selectorctl : $line"
-      done < "$selector_log"
+    loaded_after=0
+    if "$PHP_SELECTOR_CGI" -m 2>/dev/null | grep -Fqix "$module"; then
+      loaded_after=1
     fi
+
+    if [ "$loaded_after" = "1" ]; then
+      PHP_EXTENSIONS_ACTIVE=$((PHP_EXTENSIONS_ACTIVE + 1))
+      debug "Extension PHP $module : active après vérification/activation"
+    else
+      if [ -n "$inactive_list" ]; then
+        inactive_list="${inactive_list}, ${module}"
+      else
+        inactive_list="$module"
+      fi
+      debug "Extension PHP $module : toujours inactive ; poursuite de l’installation"
+    fi
+  done
+
+  PHP_EXTENSIONS_INACTIVE="$inactive_list"
+  debug "Extensions PHP actives : ${PHP_EXTENSIONS_ACTIVE}/${PHP_EXTENSIONS_TOTAL}"
+  if [ -n "$PHP_EXTENSIONS_INACTIVE" ]; then
+    debug "Extensions PHP non actives (non bloquant) : $PHP_EXTENSIONS_INACTIVE"
   fi
 
-  imagick_state_after="$(
-    selectorctl --list-user-extensions \
-      --version="$IMAGICK_PHP_VERSION" \
-      --all 2>/dev/null |
-    awk '$2 == "imagick" {print $1; exit}'
-  )"
-
-  debug "État Imagick après activation : ${imagick_state_after:-<introuvable>}"
-
-  # Vérification réelle avec le même php-cgi que celui indiqué par PHP Selector.
-  if ! "$IMAGICK_PHP_CGI" -m 2>/dev/null | grep -qi '^imagick$'; then
-    return 6
-  fi
-
-  # Vérifie également que l'extension et la classe Imagick sont utilisables.
-  test_file="$TMP_DIR/imagick-test.php"
-  cat > "$test_file" <<'PHP'
-<?php
-echo extension_loaded('imagick') ? "EXTENSION_OK\n" : "EXTENSION_NON\n";
-echo class_exists('Imagick') ? "CLASSE_OK\n" : "CLASSE_NON\n";
-echo phpversion('imagick') ?: 'VERSION_INCONNUE';
-echo "\n";
-PHP
-
-  test_output="$("$IMAGICK_PHP_CGI" -q "$test_file" 2>/dev/null || true)"
-  debug "Test Imagick PHP : $(printf '%s' "$test_output" | tr '\n' ' ')"
-
-  if ! printf '%s\n' "$test_output" | grep -q '^EXTENSION_OK$'; then
-    return 7
-  fi
-
-  if ! printf '%s\n' "$test_output" | grep -q '^CLASSE_OK$'; then
-    return 8
-  fi
-
+  # Toujours succès : cette étape est volontairement non bloquante.
   return 0
 }
 
@@ -1364,29 +1368,20 @@ fi
 
 set_status "Sous-domaine créé." 57
 
-set_step 7 "Activation d’Imagick" 60 "Détection du PHP sélectionné et vérification de l’extension Imagick..."
+set_step 7 "Extensions PHP" 60 "Vérification et activation des extensions PHP requises..."
 
-set_status "Recherche de l’extension Imagick..." 61
-spinner_start "Configuration d’Imagick..."
-enable_imagick
-IMAGICK_RC=$?
+set_status "Vérification de curl, dom, imagick, libxml, session, pdo et pdo_sqlite..." 61
+spinner_start "Configuration des extensions PHP..."
+configure_php_extensions
 spinner_stop
 
-if [ "$IMAGICK_RC" -ne 0 ]; then
-  case "$IMAGICK_RC" in
-    1) fatal "PHP Selector (selectorctl) n’est pas disponible sur ce compte." ;;
-    2) fatal "Impossible de détecter la version PHP sélectionnée par CloudLinux." ;;
-    3) fatal "Le binaire PHP CGI sélectionné est introuvable ou non exécutable." ;;
-    4) fatal "L’extension Imagick n’est pas proposée pour la version PHP sélectionnée." ;;
-    5) fatal "Imagick est disponible, mais son activation avec PHP Selector a échoué." ;;
-    6) fatal "Imagick semble activé dans PHP Selector, mais PHP CGI ne charge pas le module." ;;
-    7) fatal "Le module Imagick est chargé, mais extension_loaded('imagick') échoue." ;;
-    8) fatal "L’extension Imagick est chargée, mais la classe Imagick est indisponible." ;;
-    *) fatal "Impossible d’activer ou de vérifier Imagick." ;;
-  esac
+if [ "$PHP_EXTENSIONS_ACTIVE" -eq "$PHP_EXTENSIONS_TOTAL" ]; then
+  set_status "Extensions PHP vérifiées : ${PHP_EXTENSIONS_ACTIVE}/${PHP_EXTENSIONS_TOTAL} actives." 65
+elif [ -n "$PHP_EXTENSIONS_INACTIVE" ]; then
+  set_status "Extensions PHP : ${PHP_EXTENSIONS_ACTIVE}/${PHP_EXTENSIONS_TOTAL} actives ; indisponibles ignorées : $PHP_EXTENSIONS_INACTIVE" 65
+else
+  set_status "Vérification des extensions PHP terminée sans bloquer l’installation." 65
 fi
-
-set_status "Imagick est activé et fonctionnel avec PHP $IMAGICK_PHP_VERSION." 65
 
 set_step 8 "Installation de l’application" 67 "Installation du fichier PHP téléchargé..."
 

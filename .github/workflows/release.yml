@@ -15,6 +15,8 @@ jobs:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v5
+        with:
+          fetch-depth: 2
       - uses: actions/setup-node@v5
         with:
           node-version: 20
@@ -40,8 +42,12 @@ jobs:
           } else {
             $currentVersion = (Get-Content src/package.json -Raw | ConvertFrom-Json).version
             $previousVersion = ''
-            if (git rev-parse HEAD^ 2>$null) {
-              $previousVersion = (git show HEAD^:src/package.json 2>$null | ConvertFrom-Json).version
+            $previousCommit = git rev-parse HEAD^ 2>$null
+            if ($LASTEXITCODE -eq 0 -and $previousCommit) {
+              $previousPackage = git show HEAD^:src/package.json 2>$null
+              if ($LASTEXITCODE -eq 0 -and $previousPackage) {
+                $previousVersion = ($previousPackage | ConvertFrom-Json).version
+              }
             }
             if ($currentVersion -and $currentVersion -ne $previousVersion) {
               "tag=v$currentVersion" >> $env:GITHUB_OUTPUT
