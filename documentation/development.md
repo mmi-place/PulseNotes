@@ -5,7 +5,7 @@
 - Node.js 20.19 ou supérieur ;
 - npm ;
 - PHP 8.1 ou supérieur dans WSL ;
-- extensions PHP `curl`, `dom`, `libxml`, `session`, `pdo` et `pdo_sqlite`.
+- extensions PHP `curl`, `dom`, `imagick`, `libxml`, `session`, `pdo` et `pdo_sqlite`.
 
 ## Installation des dépendances
 

@@ -43,6 +43,7 @@ bash -n deploy/personal/update.sh
 ## Vérifications serveur
 
 - HTTPS et en-têtes de sécurité ;
+- extension PHP `imagick` active pour le SAPI web du domaine ;
 - mode annoncé par `/api/status` ;
 - permissions de `api/config.php` et `api/data/` ;
 - connexion réelle avec un compte UVSQ de test ;

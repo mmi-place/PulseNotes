@@ -33,6 +33,14 @@ Le script crée :
 
 L’installateur cible le Terminal cPanel. Il récupère la dernière archive de la GitHub Release, vérifie son empreinte SHA-256, crée le sous-domaine `pulsenotes`, installe les fichiers, génère la clé applicative et protège SQLite. S’il existe déjà une installation, `api/config.php` et `api/data/` sont conservés.
 
+Avant l’installation, activez l’extension PHP **imagick** dans cPanel (Select PHP Version > Extensions). Elle est nécessaire pour convertir les cartes de partage en PNG 1200 × 630. Vérifiez ensuite dans le Terminal :
+
+```bash
+php -m | grep -i '^imagick$'
+```
+
+La commande doit afficher `imagick`. L’extension doit aussi être activée pour la version PHP utilisée par le domaine, pas uniquement pour le PHP CLI.
+
 Depuis le Terminal cPanel, vous pouvez le télécharger depuis le service global :
 
 ```bash
@@ -69,6 +77,7 @@ Le service global public prévu pour PulseNotes est : <https://pulsenotes.mmi.p
 Prérequis serveur :
 
 - PHP 8.1 ou supérieur avec `curl`, `dom`, `libxml`, `session` et le pilote PDO de la base ;
+- PHP 8.1 ou supérieur avec `imagick` pour les images PNG de partage ;
 - MySQL ou PostgreSQL ;
 - HTTPS obligatoire ;
 - accès sortant à CAS et à Bulletins UVSQ.
