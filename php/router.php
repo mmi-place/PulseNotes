@@ -412,7 +412,7 @@ function respondInstallerScript(): never
     if ($handle === false) throw new RuntimeException('Impossible d\'initialiser le téléchargement de l’installateur.');
     curl_setopt_array($handle, [
         CURLOPT_RETURNTRANSFER => true,
-        CURLOPT_FOLLOWLOCATION => false,
+        CURLOPT_FOLLOWLOCATION => true,
         CURLOPT_CONNECTTIMEOUT => 5,
         CURLOPT_TIMEOUT => 15,
         CURLOPT_USERAGENT => 'PulseNotesInstallerProxy/1.0',
