@@ -14,6 +14,14 @@ export default defineConfig({
       '/api': {
         target: 'http://127.0.0.1:8787',
         changeOrigin: false
+      },
+      '/install.sh': {
+        target: 'http://127.0.0.1:8787',
+        changeOrigin: false
+      },
+      '/share': {
+        target: 'http://127.0.0.1:8787',
+        changeOrigin: false
       }
     }
   },

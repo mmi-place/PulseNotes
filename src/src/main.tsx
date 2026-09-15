@@ -24,6 +24,11 @@ const Analyses = lazy(() => import('./pages/Analyses').then(module => ({ default
 const Notes = lazy(() => import('./pages/Notes').then(module => ({ default: module.Notes })));
 const Semesters = lazy(() => import('./pages/Semesters').then(module => ({ default: module.Semesters })));
 const Synthesis = lazy(() => import('./pages/Synthesis').then(module => ({ default: module.Synthesis })));
+const displayNameFrom = (name: string) => {
+  const value = name.trim();
+  if (!value || value === 'Étudiant PulseNotes') return '';
+  return value;
+};
 
 function App() {
   const [data, setData] = useState<StudentData | null>(null);
@@ -36,7 +41,8 @@ function App() {
   const [authLoading, setAuthLoading] = useState(false);
   const [username, setUsername] = useState('');
   const [deploymentMode, setDeploymentMode] = useState<'global' | 'selfhosted'>(() => authPreview && !personalPreview ? 'global' : 'selfhosted');
-  const [instanceName, setInstanceName] = useState(() => authPreview && !personalPreview ? 'PulseNotes' : 'Mon PulseNotes');
+  const [instanceName, setInstanceName] = useState('PulseNotes');
+  const [displayName, setDisplayName] = useState(() => localStorage.getItem('pulsenotes:student-name') || '');
   const [personalSetupRequired, setPersonalSetupRequired] = useState(authPreviewMode === 'personal-setup');
   const [personalAuthMethod, setPersonalAuthMethod] = useState<PersonalAuthMethod | ''>(() => authPreviewMode === 'personal-pattern' ? 'pattern' : personalPreview ? 'pin4' : '');
   const [personalCredentialInvalid, setPersonalCredentialInvalid] = useState(authPreviewMode === 'personal-invalid');
@@ -52,6 +58,13 @@ function App() {
     try {
       const result = await loadStudentData(isDemo);
       setData(result);
+      if (!isDemo) {
+        const fullName = displayNameFrom(result.profile.name);
+        if (fullName) {
+          setDisplayName(fullName);
+          localStorage.setItem('pulsenotes:student-name', fullName);
+        }
+      }
       setLoadingMessage('Vérification des nouvelles notes…');
       setChangeStates(isDemo ? Object.fromEntries(result.reports.flatMap(report => report.evaluations).map(item => [item.id, 'seen'])) : await syncEvaluationStates(result));
       setScope(current => {
@@ -80,7 +93,7 @@ function App() {
         const status = await getProxyStatus();
         setUsername(status.username);
         setDeploymentMode(status.deploymentMode);
-        setInstanceName(status.instanceName);
+        setInstanceName(status.deploymentMode === 'selfhosted' ? 'PulseNotes' : status.instanceName);
         setPersonalSetupRequired(status.setupRequired);
         setPersonalAuthMethod(status.authMethod);
         setPersonalCredentialInvalid(status.credentialInvalid);
@@ -205,7 +218,7 @@ function App() {
     if (!isDemo) void setEvaluationDebugState(id, state);
   };
 
-  if (authRequired) return <AuthGateway serverMode={deploymentMode} instanceName={instanceName} initialUsername={username} error={error} loading={authLoading} setupRequired={personalSetupRequired} credentialInvalid={personalCredentialInvalid} authMethod={personalAuthMethod} onSubmit={login} onPersonalSetup={personalSetup} onPersonalUnlock={personalUnlock} onPersonalCredential={personalCredential} />;
+  if (authRequired) return <AuthGateway serverMode={deploymentMode} instanceName={instanceName} initialUsername={username} displayName={displayName} error={error} loading={authLoading} setupRequired={personalSetupRequired} credentialInvalid={personalCredentialInvalid} authMethod={personalAuthMethod} onSubmit={login} onPersonalSetup={personalSetup} onPersonalUnlock={personalUnlock} onPersonalCredential={personalCredential} />;
 
   let content = loading
     ? <SkeletonPage variant={view} label={loadingMessage} />
@@ -219,7 +232,7 @@ function App() {
               ? <Analyses report={report} onView={setView} onNotesFilter={value => onNotesFilter(value)} onOpenEvaluation={openEvaluation} scopeLabel={scopeLabel} />
               : <Synthesis report={report} reports={selectedReports} annual={scope.startsWith('year:')} scopeLabel={scopeLabel} changeStates={changeStates} onSeen={onSeen} onSeenMany={onSeenMany} onView={setView} onNotesFilter={value => onNotesFilter(value)} onOpenEvaluation={openEvaluation} />;
 
-  return <Layout data={data} activeView={view} activeSemester={scope} scopeLabel={scopeLabel} username={isDemo ? 'Mode démo' : username} connected={isDemo || (!!data && !authRequired)} deploymentMode={deploymentMode} personalAuthMethod={personalAuthMethod || 'password'} onView={setView} onSemesterChange={selectScope} onNotesSearch={(value, nextScope) => onNotesFilter(value, nextScope, true)} onLogout={() => void logout()} onUpdateCredential={async password => { await updatePersonalCredential(password); }} onUpdateSecurity={async (method, secret) => { await updatePersonalSecurity(method, secret); setPersonalAuthMethod(method); }}><Suspense fallback={<SkeletonPage variant={view} />}>{content}</Suspense></Layout>;
+  return <Layout data={data} activeView={view} activeSemester={scope} scopeLabel={scopeLabel} username={isDemo ? 'Mode démo' : username} displayName={displayName} connected={isDemo || (!!data && !authRequired)} loading={loading} deploymentMode={deploymentMode} personalAuthMethod={personalAuthMethod || 'password'} onView={setView} onSemesterChange={selectScope} onNotesSearch={(value, nextScope) => onNotesFilter(value, nextScope, true)} onLogout={() => void logout()} onUpdateCredential={async password => { await updatePersonalCredential(password); }} onUpdateSecurity={async (method, secret) => { await updatePersonalSecurity(method, secret); setPersonalAuthMethod(method); }}><Suspense fallback={<SkeletonPage variant={view} />}>{content}</Suspense></Layout>;
 }
 
 createRoot(document.getElementById('root')!).render(<StrictMode>{shareToken ? <SharedNote token={shareToken} /> : <App />}</StrictMode>);

@@ -9,7 +9,7 @@ const methods: { id: PersonalAuthMethod; text: string }[] = [
   { id: 'password', text: 'Saisie classique au clavier' }
 ];
 
-export function PersonalAccess({ setupRequired, credentialInvalid, authMethod, username, instanceName, error, loading, onSetup, onUnlock, onCredential }: { setupRequired: boolean; credentialInvalid: boolean; authMethod: PersonalAuthMethod | ''; username: string; instanceName: string; error: string; loading: boolean; onSetup: (username: string, password: string, method: PersonalAuthMethod, secret: string) => Promise<void>; onUnlock: (secret: string) => Promise<void>; onCredential: (password: string) => Promise<void> }) {
+export function PersonalAccess({ setupRequired, credentialInvalid, authMethod, username, displayName, instanceName, error, loading, onSetup, onUnlock, onCredential }: { setupRequired: boolean; credentialInvalid: boolean; authMethod: PersonalAuthMethod | ''; username: string; displayName?: string; instanceName: string; error: string; loading: boolean; onSetup: (username: string, password: string, method: PersonalAuthMethod, secret: string) => Promise<void>; onUnlock: (secret: string) => Promise<void>; onCredential: (password: string) => Promise<void> }) {
   const [step, setStep] = useState(1);
   const [identifier, setIdentifier] = useState(username);
   const [casPassword, setCasPassword] = useState('');
@@ -22,7 +22,7 @@ export function PersonalAccess({ setupRequired, credentialInvalid, authMethod, u
 
   if (!setupRequired) {
     const activeMethod = authMethod || 'password';
-    return <main className="personal-access-shell"><section className="personal-access-card unlock-card" aria-labelledby="unlock-title"><p className="eyebrow">{instanceName}</p><h1 id="unlock-title">Bonjour{username ? ` ${username}` : ''}</h1><p>Déverrouillez votre espace personnel.</p><form className="personal-form" onSubmit={(event: FormEvent) => { event.preventDefault(); void onUnlock(secret); }}><LocalSecretControl method={activeMethod} value={secret} onChange={setSecret} label={personalMethodLabels[activeMethod]} autoFocus />{error && <p className="personal-error" role="alert">{error}</p>}<button className="action-button primary" disabled={loading || !secret}>{loading ? 'Connexion…' : 'Ouvrir PulseNotes'}</button></form><p className="personal-security-note">Un seul compte est configuré sur ce serveur personnel.</p></section></main>;
+    return <main className="personal-access-shell"><section className="personal-access-card unlock-card" aria-labelledby="unlock-title"><p className="eyebrow">{instanceName}</p><h1 id="unlock-title">Bonjour{displayName ? ` ${displayName}` : ''}</h1><p>Déverrouillez votre espace personnel.</p><form className="personal-form" onSubmit={(event: FormEvent) => { event.preventDefault(); void onUnlock(secret); }}><LocalSecretControl method={activeMethod} value={secret} onChange={setSecret} label={personalMethodLabels[activeMethod]} autoFocus />{error && <p className="personal-error" role="alert">{error}</p>}<button className="action-button primary" disabled={loading || !secret}>{loading ? 'Connexion…' : 'Ouvrir PulseNotes'}</button></form><p className="personal-security-note">Un seul compte est configuré sur ce serveur personnel.</p></section></main>;
   }
 
   const nextCredentials = (event: FormEvent) => { event.preventDefault(); if (identifier && casPassword) setStep(2); };

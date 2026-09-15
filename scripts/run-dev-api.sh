@@ -22,11 +22,16 @@ if [ "$MODE" = 'global' ]; then
 elif [ "$MODE" = 'personal' ]; then
   php -m | grep -qi pdo_sqlite || { echo 'Extension PHP pdo_sqlite manquante.' >&2; exit 1; }
   export PULSENOTES_DEPLOYMENT_MODE=selfhosted
-  export PULSENOTES_INSTANCE_NAME='PulseNotes Dev Personnel'
+  export PULSENOTES_INSTANCE_NAME='PulseNotes'
   echo 'API PulseNotes en mode personnel avec SQLite.'
 else
   echo "Mode de développement inconnu : $MODE" >&2
   exit 1
 fi
+
+php -m | grep -qi '^imagick$' || {
+  echo 'Extension PHP Imagick manquante. Installez php-imagick puis relancez le serveur PHP.' >&2
+  exit 1
+}
 
 exec php -S "127.0.0.1:${API_PORT}" router.php

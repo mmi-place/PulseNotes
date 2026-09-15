@@ -36,7 +36,7 @@ function spatialTarget(elements: HTMLElement[], current: HTMLElement, key: strin
   }).filter(item => positive ? item.primary > 4 : item.primary < -4).sort((first, second) => first.score - second.score)[0]?.element;
 }
 
-export function Layout({ data, activeView, activeSemester, scopeLabel, username, connected, deploymentMode, personalAuthMethod, onView, onSemesterChange, onNotesSearch, onLogout, onUpdateCredential, onUpdateSecurity, children }: { data: StudentData | null; activeView: ViewId; activeSemester: StudyScope; scopeLabel: string; username: string; connected: boolean; deploymentMode: 'global' | 'selfhosted'; personalAuthMethod: PersonalAuthMethod; onView: (view: ViewId) => void; onSemesterChange: (id: StudyScope) => void; onNotesSearch: (query: string, scope?: StudyScope) => void; onLogout: () => void; onUpdateCredential: (password: string) => Promise<void>; onUpdateSecurity: (method: PersonalAuthMethod, secret: string) => Promise<void>; children: ReactNode }) {
+export function Layout({ data, activeView, activeSemester, scopeLabel, username, displayName, connected, loading, deploymentMode, personalAuthMethod, onView, onSemesterChange, onNotesSearch, onLogout, onUpdateCredential, onUpdateSecurity, children }: { data: StudentData | null; activeView: ViewId; activeSemester: StudyScope; scopeLabel: string; username: string; displayName: string; connected: boolean; loading: boolean; deploymentMode: 'global' | 'selfhosted'; personalAuthMethod: PersonalAuthMethod; onView: (view: ViewId) => void; onSemesterChange: (id: StudyScope) => void; onNotesSearch: (query: string, scope?: StudyScope) => void; onLogout: () => void; onUpdateCredential: (password: string) => Promise<void>; onUpdateSecurity: (method: PersonalAuthMethod, secret: string) => Promise<void>; children: ReactNode }) {
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
   const [commandsOpen, setCommandsOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -117,6 +117,12 @@ export function Layout({ data, activeView, activeSemester, scopeLabel, username,
       if (commandsOpen) {
         return;
       }
+      if (event.altKey && event.key.toLowerCase() === 'w' && deploymentMode === 'selfhosted' && connected) {
+        event.preventDefault();
+        event.stopPropagation();
+        setSettingsOpen(true);
+        return;
+      }
       if (editing) return;
       if (event.altKey && !event.ctrlKey && !event.metaKey) {
         const index = navigationShortcutIndex(event.key, event.code);
@@ -132,8 +138,7 @@ export function Layout({ data, activeView, activeSemester, scopeLabel, username,
         }
         if (event.key.toLowerCase() === 'd' && connected) {
           event.preventDefault();
-          if (deploymentMode === 'selfhosted') setSettingsOpen(true);
-          else onLogout();
+          onLogout();
           return;
         }
         if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') {
@@ -185,8 +190,8 @@ export function Layout({ data, activeView, activeSemester, scopeLabel, username,
         openShortcuts();
       }
     };
-    window.addEventListener('keydown', onKeyDown);
-    return () => window.removeEventListener('keydown', onKeyDown);
+    window.addEventListener('keydown', onKeyDown, true);
+    return () => window.removeEventListener('keydown', onKeyDown, true);
   }, [activeView, commandsOpen, connected, deploymentMode, onLogout, onView, shortcutsOpen]);
 
   useEffect(() => {
@@ -207,18 +212,18 @@ export function Layout({ data, activeView, activeSemester, scopeLabel, username,
           <button className="shortcut-help" aria-keyshortcuts="?" onClick={openShortcuts}><span>Raccourcis</span><kbd aria-hidden="true">?</kbd></button>
           <div className="sidebar-account">
             <span>{connected ? 'Session UVSQ active' : 'Déconnecté'}</span>
-            <strong>{data?.profile.name || 'Compte étudiant'}</strong>
+            <strong>{data?.profile.name || displayName || 'Compte étudiant'}</strong>
             {username && data?.profile.name && <small>{username}</small>}
           </div>
           <div className="sidebar-actions">
-            {connected ? deploymentMode === 'selfhosted' ? <button className="action-button secondary logout-action" aria-keyshortcuts="Alt+D" onClick={() => setSettingsOpen(true)}><span>Paramètres</span><kbd aria-hidden="true">Alt+D</kbd></button> : <button className="action-button secondary logout-action" aria-keyshortcuts="Alt+D" onClick={onLogout}><span>Se déconnecter</span><kbd aria-hidden="true">Alt+D</kbd></button> : <button className="action-button secondary" onClick={() => window.open('https://bulletins.iut-velizy.uvsq.fr/', '_blank', 'noopener')}>Ouvrir Bulletins</button>}
+            {loading ? <><span className="sidebar-loading-name skeleton" aria-label="Chargement du prénom et du nom" /> <span className="sidebar-loading-action skeleton" aria-hidden="true" /></> : connected ? deploymentMode === 'selfhosted' ? <><button className="action-button secondary logout-action" aria-keyshortcuts="Alt+W" onClick={() => setSettingsOpen(true)}><span>Paramètres</span><kbd aria-hidden="true">Alt+W</kbd></button><button className="action-button danger logout-action" aria-keyshortcuts="Alt+D" onClick={onLogout}><span>Se déconnecter</span><kbd aria-hidden="true">Alt+D</kbd></button></> : <button className="action-button danger logout-action" aria-keyshortcuts="Alt+D" onClick={onLogout}><span>Se déconnecter</span><kbd aria-hidden="true">Alt+D</kbd></button> : <button className="action-button secondary" onClick={() => window.open('https://bulletins.iut-velizy.uvsq.fr/', '_blank', 'noopener')}>Ouvrir Bulletins</button>}
           </div>
         </aside>
       </div>
       <main className="main" id="main-content" tabIndex={-1}>
         <p className="sr-only" aria-live="polite">Vue {navigation.find(item => item.id === activeView)?.label}, période {scopeLabel}.</p>
         <header className="global-header">
-          <div className="sync-context"><span className="student-copy"><strong>{data?.profile.name || 'Espace étudiant'}</strong><small>{data?.lastSync ? `Synchronisé ${data.lastSync}` : 'Aucune synchronisation'}</small></span></div>
+          <div className="sync-context"><span className="student-copy"><strong>{data?.profile.name || displayName || 'Espace étudiant'}</strong><small>{data?.lastSync ? `Synchronisé ${data.lastSync}` : 'Aucune synchronisation'}</small></span></div>
           <div className="global-header-actions">
             <button type="button" className="command-trigger" aria-keyshortcuts="Control+K Meta+K" aria-haspopup="dialog" onClick={openCommands}><span>Rechercher</span><small>module, note…</small><kbd aria-hidden="true">Ctrl K</kbd></button>
             <SemesterSwitch semesters={data?.semesters || []} activeSemester={activeSemester} onChange={onSemesterChange} />
@@ -228,8 +233,8 @@ export function Layout({ data, activeView, activeSemester, scopeLabel, username,
         <p className="footer-note">Espace personnel de consultation des résultats.</p>
       </main>
     </div>
-    {shortcutsOpen && <div className="shortcut-backdrop" role="presentation" onMouseDown={event => { if (event.target === event.currentTarget) hideShortcuts(); }}><section className="shortcut-dialog" role="dialog" aria-modal="true" aria-labelledby="shortcut-title" aria-describedby="shortcut-description"><div className="shortcut-dialog-heading"><div><span>Navigation clavier</span><h2 id="shortcut-title">Raccourcis PulseNotes</h2></div><button ref={closeShortcuts} onClick={hideShortcuts}>Fermer</button></div><p id="shortcut-description" className="shortcut-description">Les raccourcis globaux sont désactivés pendant la saisie. Dans une page, les flèches suivent la position des blocs.</p><dl><div><dt><kbd>Ctrl K</kbd></dt><dd>Rechercher une vue, une période, un module ou une note</dd></div><div><dt><kbd>Alt+1…4</kbd></dt><dd>Semestres, Synthèse, Notes ou Analyses, y compris sur clavier AZERTY</dd></div><div><dt><kbd>Alt+←</kbd> <kbd>Alt+→</kbd></dt><dd>Vue précédente ou suivante</dd></div><div><dt><kbd>/</kbd></dt><dd>Ouvrir Notes et rechercher</dd></div><div><dt><kbd>Alt+S</kbd></dt><dd>Focaliser le choix de période</dd></div><div><dt><kbd>Alt+D</kbd></dt><dd>{deploymentMode === 'selfhosted' ? 'Ouvrir les paramètres' : 'Se déconnecter'}</dd></div><div><dt><kbd>↑↓←→</kbd></dt><dd>Se déplacer entre les blocs ou dans le bloc sélectionné</dd></div><div><dt><kbd>Entrée</kbd> <kbd>Échap</kbd></dt><dd>Entrer dans un bloc ou en sortir</dd></div><div><dt><kbd>?</kbd> <kbd>,</kbd></dt><dd>Afficher cette aide</dd></div></dl></section></div>}
+    {shortcutsOpen && <div className="shortcut-backdrop" role="presentation" onMouseDown={event => { if (event.target === event.currentTarget) hideShortcuts(); }}><section className="shortcut-dialog" role="dialog" aria-modal="true" aria-labelledby="shortcut-title" aria-describedby="shortcut-description"><div className="shortcut-dialog-heading"><div><span>Navigation clavier</span><h2 id="shortcut-title">Raccourcis PulseNotes</h2></div><button ref={closeShortcuts} onClick={hideShortcuts}>Fermer</button></div><p id="shortcut-description" className="shortcut-description">Les raccourcis globaux sont désactivés pendant la saisie. Dans une page, les flèches suivent la position des blocs.</p><dl><div><dt><kbd>Ctrl K</kbd></dt><dd>Rechercher une vue, une période, un module ou une note</dd></div><div><dt><kbd>Alt+1…4</kbd></dt><dd>Semestres, Synthèse, Notes ou Analyses, y compris sur clavier AZERTY</dd></div><div><dt><kbd>Alt+←</kbd> <kbd>Alt+→</kbd></dt><dd>Vue précédente ou suivante</dd></div><div><dt><kbd>/</kbd></dt><dd>Ouvrir Notes et rechercher</dd></div><div><dt><kbd>Alt+S</kbd></dt><dd>Focaliser le choix de période</dd></div><div><dt><kbd>Alt+W</kbd></dt><dd>Ouvrir les paramètres en mode individuel</dd></div><div><dt><kbd>Alt+D</kbd></dt><dd>Se déconnecter</dd></div><div><dt><kbd>↑↓←→</kbd></dt><dd>Se déplacer entre les blocs ou dans le bloc sélectionné</dd></div><div><dt><kbd>Entrée</kbd> <kbd>Échap</kbd></dt><dd>Entrer dans un bloc ou en sortir</dd></div><div><dt><kbd>?</kbd> <kbd>,</kbd></dt><dd>Afficher cette aide</dd></div></dl></section></div>}
     <CommandPalette open={commandsOpen} data={data} onClose={hideCommands} onView={onView} onScope={onSemesterChange} onNotesSearch={onNotesSearch} />
-    {deploymentMode === 'selfhosted' && <SettingsDialog open={settingsOpen} username={username} deploymentMode={deploymentMode} authMethod={personalAuthMethod} onClose={() => setSettingsOpen(false)} onUpdateCredential={onUpdateCredential} onUpdateSecurity={onUpdateSecurity} onLogout={onLogout} />}
+    {deploymentMode === 'selfhosted' && <SettingsDialog open={settingsOpen} username={username} deploymentMode={deploymentMode} authMethod={personalAuthMethod} onClose={() => setSettingsOpen(false)} onUpdateCredential={onUpdateCredential} onUpdateSecurity={onUpdateSecurity} />}
   </VisualScene>;
 }

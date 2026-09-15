@@ -29,7 +29,9 @@ Le script crée :
 
 ## Installation personnelle sur o2switch
 
-L’installateur cible le Terminal cPanel. Il télécharge l’archive, vérifie son empreinte, crée le sous-domaine `pulsenotes`, génère la clé applicative et protège SQLite.
+![Flux de l'installation personnelle](assets/installation-personnelle.svg)
+
+L’installateur cible le Terminal cPanel. Il récupère la dernière archive de la GitHub Release, vérifie son empreinte SHA-256, crée le sous-domaine `pulsenotes`, installe les fichiers, génère la clé applicative et protège SQLite. S’il existe déjà une installation, `api/config.php` et `api/data/` sont conservés.
 
 Depuis le Terminal cPanel, vous pouvez le télécharger depuis le service global :
 
@@ -37,16 +39,17 @@ Depuis le Terminal cPanel, vous pouvez le télécharger depuis le service global
 curl -fsSL https://pulsenotes.mmi.place/install.sh | bash
 ```
 
-Cette route courte relaie la version `main` de l’installateur officiel du dépôt GitHub. Vérifiez le script avant exécution si votre politique d’exploitation l’exige.
+Cette route courte relaie l’installateur publié dans la dernière GitHub Release. Vérifiez le script avant exécution si votre politique d’exploitation l’exige.
 
 L’URL de téléchargement par défaut peut être remplacée :
 
 ```bash
 PULSENOTES_RELEASE_URL="https://example.org/pulsenotes-personal.zip" \
+PULSENOTES_RELEASE_HASH_URL="https://example.org/pulsenotes-personal.zip.sha256" \
   bash install-personal-o2switch.sh
 ```
 
-Une fois HTTPS actif, ouvrez le sous-domaine et suivez l’assistant : vérification du compte UVSQ, puis choix d’un PIN, d’un schéma ou d’un mot de passe local.
+À la fin, le script affiche un encadré jaune avec l’adresse du site. Si AutoSSL n’a pas encore activé HTTPS, attendez sa propagation puis ouvrez cette adresse. L’assistant vérifie le compte UVSQ, puis permet de choisir un PIN, un schéma ou un mot de passe local.
 
 ### Mise à jour personnelle
 

@@ -407,7 +407,7 @@ function respond(int $status, array $payload): never
 
 function respondInstallerScript(): never
 {
-    $url = 'https://raw.githubusercontent.com/mmi-place/PulseNotes/refs/heads/main/installer/install-personal-o2switch.sh';
+    $url = 'https://github.com/mmi-place/PulseNotes/releases/latest/download/install-personal-o2switch.sh';
     $handle = curl_init($url);
     if ($handle === false) throw new RuntimeException('Impossible d\'initialiser le téléchargement de l’installateur.');
     curl_setopt_array($handle, [
@@ -677,15 +677,36 @@ function respondSharePage(string $token): never
     $note = is_numeric($evaluation['note'] ?? null) ? rtrim(rtrim(number_format((float) $evaluation['note'], 2, ',', ''), '0'), ',') . '/20' : 'Note indisponible';
     $title = $share === null ? 'Partage indisponible · PulseNotes' : $label . ' · ' . $note;
     $description = $share === null ? 'Ce lien de partage n’existe plus.' : $student . ' partage un résultat PulseNotes : ' . $label . ', ' . $note . '.';
-    $indexPath = dirname(__DIR__) . DIRECTORY_SEPARATOR . 'index.html';
-    $html = is_file($indexPath) ? file_get_contents($indexPath) : false;
+    $root = dirname(__DIR__);
+    $isDevelopmentRequest = str_contains((string) ($_SERVER['HTTP_HOST'] ?? ''), ':5173');
+    $indexCandidates = $isDevelopmentRequest
+        ? [$root . DIRECTORY_SEPARATOR . 'src' . DIRECTORY_SEPARATOR . 'index.html']
+        : [
+            $root . DIRECTORY_SEPARATOR . 'dist' . DIRECTORY_SEPARATOR . 'index.html',
+            $root . DIRECTORY_SEPARATOR . 'src' . DIRECTORY_SEPARATOR . 'dist' . DIRECTORY_SEPARATOR . 'index.html',
+            $root . DIRECTORY_SEPARATOR . 'src' . DIRECTORY_SEPARATOR . 'index.html',
+        ];
+    $indexPath = array_values(array_filter($indexCandidates, static fn (string $path): bool => is_file($path)))[0] ?? null;
+    $html = $indexPath !== null ? file_get_contents($indexPath) : false;
     if (!is_string($html)) throw new RuntimeException('Page de l’application introuvable.');
-    $meta = '<meta name="description" content="' . htmlspecialchars($description, ENT_QUOTES, 'UTF-8') . '">' .
-        '<meta property="og:type" content="website"><meta property="og:title" content="' . htmlspecialchars($title, ENT_QUOTES, 'UTF-8') . '">' .
-        '<meta property="og:description" content="' . htmlspecialchars($description, ENT_QUOTES, 'UTF-8') . '">' .
-        '<meta property="og:image" content="' . htmlspecialchars(requestOrigin() . '/api/shares/' . $token . '/card.svg', ENT_QUOTES, 'UTF-8') . '">' .
-        '<meta name="twitter:card" content="summary_large_image"><meta name="twitter:title" content="' . htmlspecialchars($title, ENT_QUOTES, 'UTF-8') . '">' .
-        '<meta name="twitter:description" content="' . htmlspecialchars($description, ENT_QUOTES, 'UTF-8') . '">';
+    if ($isDevelopmentRequest) {
+        $vitePreamble = '<script type="module">import { injectIntoGlobalHook } from "/@react-refresh"; injectIntoGlobalHook(window); window.$RefreshReg$ = () => {}; window.$RefreshSig$ = () => (type) => type;</script><script type="module" src="/@vite/client"></script>';
+        $html = str_replace('<head>', '<head>' . $vitePreamble, $html);
+    }
+    $imageUrl = requestOrigin() . '/share/' . rawurlencode($token) . '?image=1';
+    $safeTitle = htmlspecialchars($title, ENT_QUOTES, 'UTF-8');
+    $safeDescription = htmlspecialchars($description, ENT_QUOTES, 'UTF-8');
+    $safeImageUrl = htmlspecialchars($imageUrl, ENT_QUOTES, 'UTF-8');
+    $pageUrl = htmlspecialchars(requestOrigin() . '/share/' . rawurlencode($token), ENT_QUOTES, 'UTF-8');
+    $meta = '<meta name="description" content="' . $safeDescription . '">' .
+        '<meta property="og:type" content="website"><meta property="og:title" content="' . $safeTitle . '">' .
+        '<meta property="og:description" content="' . $safeDescription . '"><meta property="og:url" content="' . $pageUrl . '">' .
+        '<meta property="og:site_name" content="PulseNotes"><meta property="og:image" content="' . $safeImageUrl . '">' .
+        '<meta property="og:image:secure_url" content="' . $safeImageUrl . '"><meta property="og:image:type" content="image/png">' .
+        '<meta property="og:image:width" content="1200"><meta property="og:image:height" content="630"><meta property="og:image:alt" content="' . $safeTitle . '">' .
+        '<meta name="theme-color" content="#5865F2"><meta name="twitter:card" content="summary_large_image">' .
+        '<meta name="twitter:title" content="' . $safeTitle . '"><meta name="twitter:description" content="' . $safeDescription . '">' .
+        '<meta name="twitter:image" content="' . $safeImageUrl . '"><meta name="twitter:image:alt" content="' . $safeTitle . '">';
     $html = str_replace('</head>', $meta . '</head>', str_replace('<title>PulseNotes — mmi.place</title>', '<title>' . htmlspecialchars($title, ENT_QUOTES, 'UTF-8') . '</title>', $html));
     http_response_code(200);
     header('Content-Type: text/html; charset=utf-8');
@@ -705,11 +726,33 @@ function respondShareCard(string $token): never
     $module = htmlspecialchars(trim((string) ($evaluation['moduleCode'] ?? 'PulseNotes')), ENT_XML1, 'UTF-8');
     $note = is_numeric($evaluation['note'] ?? null) ? rtrim(rtrim(number_format((float) $evaluation['note'], 2, ',', ''), '0'), ',') : '—';
     $rank = is_numeric($stats['rank'] ?? null) && is_numeric($stats['total'] ?? null) ? '#' . (int) $stats['rank'] . ' sur ' . (int) $stats['total'] : 'Classement indisponible';
-    $svg = '<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630"><rect width="1200" height="630" fill="#f1eee6"/><rect x="70" y="70" width="1060" height="490" rx="30" fill="#fffdf8" stroke="#c9c4b8" stroke-width="2"/><text x="120" y="145" font-family="Arial,sans-serif" font-size="28" font-weight="700" fill="#168985">' . $module . '</text><text x="120" y="215" font-family="Arial,sans-serif" font-size="44" font-weight="800" fill="#11151c">' . $label . '</text><text x="120" y="270" font-family="Arial,sans-serif" font-size="25" fill="#666b73">' . $student . '</text><text x="120" y="440" font-family="Arial,sans-serif" font-size="150" font-weight="900" fill="#11151c">' . $note . '</text><text x="425" y="440" font-family="Arial,sans-serif" font-size="44" font-weight="700" fill="#777d86">/ 20</text><rect x="815" y="330" width="245" height="110" rx="14" fill="#11151c"/><text x="938" y="375" text-anchor="middle" font-family="Arial,sans-serif" font-size="22" fill="#aeb5c0">RANG</text><text x="938" y="415" text-anchor="middle" font-family="Arial,sans-serif" font-size="31" font-weight="800" fill="#8bdbd2">' . $rank . '</text><text x="120" y="520" font-family="Arial,sans-serif" font-size="22" font-weight="700" fill="#11151c">PulseNotes · résultat partagé</text></svg>';
+    $svg = '<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630"><text x="70" y="105" font-family="Arial,sans-serif" font-size="28" font-weight="700" fill="#168985">' . $module . '</text><text x="70" y="180" font-family="Arial,sans-serif" font-size="44" font-weight="800" fill="#11151c">' . $label . '</text><text x="70" y="235" font-family="Arial,sans-serif" font-size="25" fill="#666b73">' . $student . '</text><text x="70" y="425" font-family="Arial,sans-serif" font-size="150" font-weight="900" fill="#11151c">' . $note . '</text><text x="375" y="425" font-family="Arial,sans-serif" font-size="44" font-weight="700" fill="#777d86">/ 20</text><rect x="690" y="285" width="340" height="165" rx="18" fill="#11151c"/><text x="860" y="350" text-anchor="middle" font-family="Arial,sans-serif" font-size="22" fill="#aeb5c0">RANG</text><text x="860" y="405" text-anchor="middle" font-family="Arial,sans-serif" font-size="38" font-weight="800" fill="#8bdbd2">' . $rank . '</text><text x="70" y="520" font-family="Arial,sans-serif" font-size="22" font-weight="700" fill="#11151c">PulseNotes · résultat partagé</text></svg>';
+    if (!class_exists('Imagick')) {
+        throw new RuntimeException('Imagick est requis pour générer l’image PNG du partage.');
+    }
+
+    try {
+        $image = new Imagick();
+        $image->setBackgroundColor(new ImagickPixel('white'));
+        $image->setOption('svg:background-color', 'white');
+        $image->setResolution(144, 144);
+        $image->readImageBlob($svg);
+        $image->resizeImage(1200, 630, Imagick::FILTER_LANCZOS, 1);
+        $image->setImageFormat('png');
+        $image->setImageDepth(8);
+        $image->stripImage();
+        $png = $image->getImagesBlob();
+        $image->clear();
+        $image->destroy();
+    } catch (Throwable $cause) {
+        throw new RuntimeException('Impossible de convertir l’image de partage en PNG.', 0, $cause);
+    }
+
     http_response_code($share === null ? 404 : 200);
-    header('Content-Type: image/svg+xml; charset=utf-8');
+    header('Content-Type: image/png');
+    header('Content-Disposition: inline; filename="pulsenotes-share.png"');
     header('Cache-Control: public, max-age=120');
-    echo $svg;
+    echo $png;
     exit;
 }
 
@@ -1170,10 +1213,11 @@ try {
 
     if (preg_match('~^/share/([a-f0-9]{64})$~', $route, $matches) === 1 && $method === 'GET') {
         if (deploymentMode() !== 'selfhosted') respond(404, ['ok' => false, 'error' => 'Le partage de notes est réservé aux installations personnelles.']);
+        if (array_key_exists('image', $_GET)) respondShareCard($matches[1]);
         respondSharePage($matches[1]);
     }
 
-    if (preg_match('~^/api/shares/([a-f0-9]{64})/card\.svg$~', $route, $matches) === 1 && $method === 'GET') {
+    if (preg_match('~^/api/shares/([a-f0-9]{64})/card\.(?:png|svg)$~', $route, $matches) === 1 && $method === 'GET') {
         if (deploymentMode() !== 'selfhosted') respond(404, ['ok' => false, 'error' => 'Le partage de notes est réservé aux installations personnelles.']);
         respondShareCard($matches[1]);
     }

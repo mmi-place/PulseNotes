@@ -58,7 +58,7 @@ export function EvaluationInsight({ evaluation, demo, sharingEnabled = false, ch
   const [shares, setShares] = useState<NoteShareSummary[]>([]);
   const [shareBusy, setShareBusy] = useState(false);
   const [shareMessage, setShareMessage] = useState('');
-  const [shareUrl, setShareUrl] = useState('');
+  const [shareMessageKind, setShareMessageKind] = useState<'success' | 'error'>('error');
   const unread = changeState !== 'seen';
   useEffect(() => {
     if (demo) { setResult(demoStats(evaluation)); return; }
@@ -98,20 +98,23 @@ export function EvaluationInsight({ evaluation, demo, sharingEnabled = false, ch
     });
   };
   const openSharing = async () => {
-    setSharing(true); setShareBusy(true); setShareMessage('');
+    setSharing(true); setShareBusy(true); setShareMessage(''); setShareMessageKind('error');
     try { setShares(await listNoteShares(evaluation.id)); } catch (cause) { setShareMessage((cause as Error).message); } finally { setShareBusy(false); }
   };
   const createShare = async () => {
-    setShareBusy(true); setShareMessage('');
+    setShareBusy(true); setShareMessage(''); setShareMessageKind('error');
     try {
       const share = await createNoteShare({ studentName, formation, semesterLabel, evaluation, stats, sharedAt: new Date().toISOString() });
       setShares(current => [share, ...current]);
       const url = noteShareUrl(share.token);
-      setShareUrl(url);
-      try { await navigator.clipboard.writeText(url); setShareMessage('Nouveau lien créé et copié.'); } catch { setShareMessage('Nouveau lien créé. Sélectionnez-le pour le copier.'); }
-    } catch (cause) { setShareMessage((cause as Error).message); } finally { setShareBusy(false); }
+      try { await navigator.clipboard.writeText(url); setShareMessage('Nouveau lien créé et copié.'); setShareMessageKind('success'); } catch { setShareMessage('Nouveau lien créé. Sélectionnez-le pour le copier.'); setShareMessageKind('success'); }
+    } catch (cause) { setShareMessage((cause as Error).message); setShareMessageKind('error'); } finally { setShareBusy(false); }
   };
-  const copyShare = async (share: NoteShareSummary) => { const url = noteShareUrl(share.token); setShareUrl(url); try { await navigator.clipboard.writeText(url); setShareMessage('Lien copié.'); } catch { setShareMessage('Sélectionnez le lien pour le copier.'); } };
+  const copyShare = async (share: NoteShareSummary) => {
+    const url = noteShareUrl(share.token);
+    try { await navigator.clipboard.writeText(url); setShareMessage('Lien copié.'); setShareMessageKind('success'); }
+    catch { setShareMessage('Sélectionnez le lien pour le copier.'); setShareMessageKind('error'); }
+  };
   return <div ref={target} className={`evaluation-insight available ${unread ? `unread ${changeState}` : ''}`} onClick={() => unread && onSeen?.(evaluation.id)}>
     {status}
     <button className="insight-open" type="button" onClick={openDialog} aria-label={`Ouvrir la distribution de ${evaluation.label}`}>
@@ -129,7 +132,7 @@ export function EvaluationInsight({ evaluation, demo, sharingEnabled = false, ch
         const detail = `${fmt(item.value)} / 20 · ${item.count} étudiant${item.count > 1 ? 's' : ''} · ${gap >= 0 ? '+' : ''}${fmt(gap)} point${Math.abs(gap) > 1 ? 's' : ''} par rapport à la moyenne`;
         return <span role="listitem" tabIndex={item.count > 0 ? 0 : -1} aria-label={`${detail}${index === studentDistributionIndex ? ' · votre note' : ''}`} className={`histogram-column ${index === studentDistributionIndex ? 'student' : ''}`} key={item.value} style={{ '--bar-size': `${Math.max(2, item.count / maxHistogramCount * 100)}%`, '--bar-delay': `${Math.min(index * 18, 420)}ms` } as CSSProperties} title={detail}>{item.count > 0 && <b>{item.count}</b>}<i /><small aria-hidden="true">{Number.isInteger(item.value) ? fmt(item.value) : ''}</small></span>;
       })}</div></div></section>
-      {sharingEnabled && sharing && <section className="share-note-panel" role="dialog" aria-modal="true" aria-labelledby={`share-${evaluation.id}`}><button className="dialog-close" type="button" onClick={() => setSharing(false)}>Fermer</button><span className="eyebrow">Lien public</span><h3 id={`share-${evaluation.id}`}>Partager cette note</h3><p>Le lien montre uniquement ce résultat, votre nom et les statistiques affichées ici. Il est révocable depuis les paramètres.</p>{shareBusy && <p role="status">Préparation du partage…</p>}{!shareBusy && shares.length > 0 && <div className="existing-shares"><strong>Lien existant</strong><button type="button" onClick={() => void copyShare(shares[0])}>Copier le lien précédent</button></div>}{shareUrl && <label className="share-url-field"><span>Lien public</span><input readOnly value={shareUrl} onFocus={event => event.currentTarget.select()} /></label>}<button type="button" className="action-button primary" disabled={shareBusy} onClick={() => void createShare()}>{shares.length ? 'Créer un nouveau lien' : 'Créer et copier le lien'}</button>{shareMessage && <p className="settings-message" role="status">{shareMessage}</p>}</section>}
+      {sharingEnabled && sharing && <section className="share-note-panel" role="dialog" aria-modal="true" aria-labelledby={`share-${evaluation.id}`}><button className="dialog-close" type="button" onClick={() => setSharing(false)}>Fermer</button><span className="eyebrow">Lien public</span><h3 id={`share-${evaluation.id}`}>Partager cette note</h3><p>Un seul lien public est utilisé pour la page et son aperçu Instagram ou Discord. Il est révocable depuis les paramètres.</p>{shareBusy && <p role="status">Préparation du partage…</p>}{!shareBusy && shares.length > 0 && <div className="share-list" aria-label="Liens publics existants">{shares.map(share => { const url = noteShareUrl(share.token); return <div className="share-row" key={share.token}><label className="share-url-field"><span>Lien public</span><input readOnly value={url} onFocus={event => event.currentTarget.select()} /></label><button type="button" className="share-copy-button" onClick={() => void copyShare(share)}>Copier</button></div>; })}</div>}<button type="button" className="action-button primary" disabled={shareBusy} onClick={() => void createShare()}>{shares.length ? 'Créer un nouveau lien' : 'Créer et copier le lien'}</button>{shareMessage && <p className={`settings-message ${shareMessageKind}`} role="status">{shareMessage}</p>}</section>}
     </dialog>
   </div>;
 }

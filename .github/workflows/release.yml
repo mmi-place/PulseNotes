@@ -38,9 +38,20 @@ jobs:
             "name=$env:GITHUB_REF_NAME" >> $env:GITHUB_OUTPUT
             "prerelease=false" >> $env:GITHUB_OUTPUT
           } else {
-            "tag=main-$env:GITHUB_RUN_NUMBER" >> $env:GITHUB_OUTPUT
-            "name=Build main $env:GITHUB_RUN_NUMBER" >> $env:GITHUB_OUTPUT
-            "prerelease=true" >> $env:GITHUB_OUTPUT
+            $currentVersion = (Get-Content src/package.json -Raw | ConvertFrom-Json).version
+            $previousVersion = ''
+            if (git rev-parse HEAD^ 2>$null) {
+              $previousVersion = (git show HEAD^:src/package.json 2>$null | ConvertFrom-Json).version
+            }
+            if ($currentVersion -and $currentVersion -ne $previousVersion) {
+              "tag=v$currentVersion" >> $env:GITHUB_OUTPUT
+              "name=v$currentVersion" >> $env:GITHUB_OUTPUT
+              "prerelease=false" >> $env:GITHUB_OUTPUT
+            } else {
+              "tag=main-$env:GITHUB_RUN_NUMBER" >> $env:GITHUB_OUTPUT
+              "name=Build main $env:GITHUB_RUN_NUMBER" >> $env:GITHUB_OUTPUT
+              "prerelease=true" >> $env:GITHUB_OUTPUT
+            }
           }
       - name: Publier les archives GitHub
         uses: softprops/action-gh-release@v2

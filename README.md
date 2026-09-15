@@ -92,7 +92,7 @@ output/
 └── pulsenotes-personal.zip.sha256
 ```
 
-Chaque push sur `main` publie aussi une prerelease GitHub avec les deux ZIP et l’installateur o2switch. Les tags `v*` publient une release versionnée.
+Chaque push sur `main` publie une prerelease GitHub avec les deux ZIP et l’installateur o2switch. Si la version de `src/package.json` change, le workflow publie automatiquement une release versionnée `vX.Y.Z`. Les tags `v*` explicites publient également une release versionnée.
 
 ## Documentation
 

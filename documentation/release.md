@@ -68,7 +68,7 @@ Chaque ZIP doit contenir `index.html`, `assets/`, `api/index.php`, `api/router.p
 
 ## Publication
 
-1. attribuer une version au code et aux archives ;
+1. modifier la version dans `src/package.json` (un changement de version sur `main` déclenche automatiquement une release `vX.Y.Z`) ;
 2. conserver les empreintes SHA-256 avec les ZIP ;
 3. publier une note de version centrée sur les changements utilisateur et migrations ;
 4. déployer d’abord sur une installation de test ;
