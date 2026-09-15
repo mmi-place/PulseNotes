@@ -5,8 +5,9 @@
 # Ce script :
 #   - se connecte au compte cPanel de l’utilisateur courant ;
 #   - crée/recrée un sous-domaine et son dossier web ;
-#   - télécharge et valide APP_PHP_URL dès la première étape (échec rapide) ;
-#   - installe ensuite ce modèle PHP dans le dossier web sans le retélécharger ;
+#   - télécharge la dernière release personnelle PulseNotes depuis GitHub ;
+#   - vérifie son empreinte SHA-256 et la structure de l’archive ;
+#   - déploie le frontend React + l’API PHP + SQLite dans le dossier web ;
 #   - détecte le PHP CloudLinux sélectionné et vérifie/active au mieux les extensions PHP requises ;
 #   - réutilise en priorité un certificat FleetSSL/Let’s Encrypt déjà stocké ;
 #   - n’émet un nouveau certificat que si aucun certificat existant n’est trouvé ;
@@ -44,14 +45,9 @@ DEMO_SUBDOMAIN_SUFFIX="-demo"
 # Exemple de test : MAIN_DOMAIN_OVERRIDE="example.com"
 MAIN_DOMAIN_OVERRIDE=""
 
-# Marqueur utilisé uniquement pour vérifier que la bonne page répond.
-APP_HEALTH_MARKER="APP_INSTALL_OK"
-
-# Fichiers publics de l’installateur.
-# Tout est centralisé ici pour pouvoir changer facilement de serveur de déploiement.
-INSTALL_PUBLIC_BASE_URL="https://bulletins.mmi.place/install"
-APP_PHP_URL="${INSTALL_PUBLIC_BASE_URL}/app.php"
-APP_PHP_DEST_NAME="index.php"
+# Release personnelle officielle publiée par GitHub Actions.
+APP_RELEASE_URL="https://github.com/mmi-place/PulseNotes/releases/latest/download/pulsenotes-personal.zip"
+APP_RELEASE_SHA256_URL="${APP_RELEASE_URL}.sha256"
 
 # Connexion cPanel. CPANEL_HOST_OVERRIDE peut aussi être fourni dans l’environnement.
 CPANEL_PROTOCOL="https"
@@ -92,7 +88,10 @@ LOGIN_FILE=""
 DOMAINS_FILE=""
 API_FILE=""
 SSL_FILE=""
-PHP_TEMPLATE_FILE=""
+APP_ARCHIVE_FILE=""
+APP_CHECKSUM_FILE=""
+PRESERVED_CONFIG_FILE=""
+PRESERVED_DATA_DIR=""
 PHP_SELECTOR_VERSION=""
 PHP_SELECTOR_CGI=""
 PHP_EXTENSIONS_ACTIVE=0
@@ -187,7 +186,6 @@ if [ "$DEMO_MODE" = "1" ]; then
   APP_DISPLAY_NAME="${APP_DISPLAY_NAME}${DEMO_DISPLAY_SUFFIX}"
   APP_DIR_NAME="${APP_DIR_NAME}${DEMO_DIR_SUFFIX}"
   SUBDOMAIN_NAME="${SUBDOMAIN_NAME}${DEMO_SUBDOMAIN_SUFFIX}"
-  APP_HEALTH_MARKER="${APP_HEALTH_MARKER}_DEMO"
 fi
 
 # Valeurs dérivées : toujours calculées après traitement des options afin que
@@ -221,17 +219,18 @@ validate_config() {
     exit 2
   fi
 
-  case "$APP_PHP_DEST_NAME" in
-    ""|"."|".."|*/*)
-      echo "Configuration invalide : APP_PHP_DEST_NAME doit être un simple nom de fichier." >&2
+  case "$APP_RELEASE_URL" in
+    https://github.com/mmi-place/PulseNotes/releases/*) : ;;
+    *)
+      echo "Configuration invalide : APP_RELEASE_URL doit pointer vers une release GitHub PulseNotes." >&2
       exit 2
       ;;
   esac
 
-  case "$APP_PHP_URL" in
-    https://*|http://*) : ;;
+  case "$APP_RELEASE_SHA256_URL" in
+    https://github.com/mmi-place/PulseNotes/releases/*) : ;;
     *)
-      echo "Configuration invalide : APP_PHP_URL doit commencer par http:// ou https://." >&2
+      echo "Configuration invalide : APP_RELEASE_SHA256_URL doit pointer vers une release GitHub PulseNotes." >&2
       exit 2
       ;;
   esac
@@ -932,53 +931,203 @@ raise SystemExit(0 if obj.get("success") is True else 1)
 ' "$SSL_FILE"
 }
 
-download_app_template() {
-  local file_size="0"
+download_release_archive() {
+  local archive_size="0"
 
-  debug "Téléchargement de l’application"
-  debug "URL source : $APP_PHP_URL"
-  debug "Fichier temporaire : $PHP_TEMPLATE_FILE"
+  debug "Téléchargement de la release personnelle PulseNotes"
+  debug "Archive : $APP_RELEASE_URL"
+  debug "SHA-256 : $APP_RELEASE_SHA256_URL"
+  debug "Fichier temporaire : $APP_ARCHIVE_FILE"
 
   LAST_HTTP="$(curl \
     -sS \
     -L \
+    --fail \
+    --proto '=https' \
+    --tlsv1.2 \
     --connect-timeout 10 \
-    --max-time 60 \
-    -o "$PHP_TEMPLATE_FILE" \
+    --max-time 180 \
+    -o "$APP_ARCHIVE_FILE" \
     -w '%{http_code}' \
-    "$APP_PHP_URL" \
+    "$APP_RELEASE_URL" \
     || true)"
 
-  debug "HTTP téléchargement : $LAST_HTTP"
+  debug "HTTP archive : $LAST_HTTP"
 
-  if [ -f "$PHP_TEMPLATE_FILE" ]; then
-    file_size="$(wc -c < "$PHP_TEMPLATE_FILE" 2>/dev/null | tr -d '[:space:]')"
-    file_size="${file_size:-0}"
+  if [ -f "$APP_ARCHIVE_FILE" ]; then
+    archive_size="$(wc -c < "$APP_ARCHIVE_FILE" 2>/dev/null | tr -d '[:space:]')"
+    archive_size="${archive_size:-0}"
   fi
+  debug "Taille archive : ${archive_size} octets"
 
-  debug "Taille téléchargée : ${file_size} octets"
-
-  if [ "$LAST_HTTP" != "200" ] || [ ! -s "$PHP_TEMPLATE_FILE" ]; then
+  if [ "$LAST_HTTP" != "200" ] || [ ! -s "$APP_ARCHIVE_FILE" ]; then
     return 1
   fi
 
-  if ! grep -q '<?php' "$PHP_TEMPLATE_FILE"; then
-    debug "Validation PHP : échec (balise <?php absente)"
+  LAST_HTTP="$(curl \
+    -sS \
+    -L \
+    --fail \
+    --proto '=https' \
+    --tlsv1.2 \
+    --connect-timeout 10 \
+    --max-time 60 \
+    -o "$APP_CHECKSUM_FILE" \
+    -w '%{http_code}' \
+    "$APP_RELEASE_SHA256_URL" \
+    || true)"
+
+  debug "HTTP SHA-256 : $LAST_HTTP"
+  if [ "$LAST_HTTP" != "200" ] || [ ! -s "$APP_CHECKSUM_FILE" ]; then
     return 2
   fi
 
-  if ! grep -q '{{APP_DISPLAY_NAME}}' "$PHP_TEMPLATE_FILE"; then
-    debug "Validation modèle : marqueur {{APP_DISPLAY_NAME}} absent"
+  if ! python3 - "$APP_ARCHIVE_FILE" "$APP_CHECKSUM_FILE" <<'PY'
+import hashlib
+import re
+import sys
+
+archive, checksum_file = sys.argv[1:3]
+text = open(checksum_file, encoding="ascii", errors="strict").read().strip()
+match = re.match(r"^([0-9a-fA-F]{64})(?:\s+.+)?$", text)
+if not match:
+    raise SystemExit(2)
+expected = match.group(1).lower()
+h = hashlib.sha256()
+with open(archive, "rb") as f:
+    for chunk in iter(lambda: f.read(1024 * 1024), b""):
+        h.update(chunk)
+raise SystemExit(0 if h.hexdigest() == expected else 1)
+PY
+  then
     return 3
   fi
 
-  if ! grep -q '{{APP_HEALTH_MARKER}}' "$PHP_TEMPLATE_FILE"; then
-    debug "Validation modèle : marqueur {{APP_HEALTH_MARKER}} absent"
+  if ! python3 - "$APP_ARCHIVE_FILE" <<'PY'
+import pathlib
+import stat
+import sys
+import zipfile
+
+archive = sys.argv[1]
+required = {
+    "index.html",
+    ".htaccess",
+    "api/index.php",
+    "api/router.php",
+    "api/config.php",
+    "api/.htaccess",
+    "api/update.sh",
+}
+
+try:
+    with zipfile.ZipFile(archive) as z:
+        names = {name.rstrip("/") for name in z.namelist()}
+        missing = sorted(required - names)
+        if missing:
+            print("Fichiers manquants dans la release : " + ", ".join(missing), file=sys.stderr)
+            raise SystemExit(4)
+
+        for info in z.infolist():
+            raw = info.filename.replace("\\", "/")
+            path = pathlib.PurePosixPath(raw)
+            if path.is_absolute() or ".." in path.parts:
+                print("Chemin ZIP dangereux : " + info.filename, file=sys.stderr)
+                raise SystemExit(5)
+            mode = (info.external_attr >> 16) & 0o170000
+            if mode == stat.S_IFLNK:
+                print("Lien symbolique refusé dans la release : " + info.filename, file=sys.stderr)
+                raise SystemExit(6)
+
+        bad = z.testzip()
+        if bad is not None:
+            print("Entrée ZIP corrompue : " + bad, file=sys.stderr)
+            raise SystemExit(7)
+except zipfile.BadZipFile:
+    raise SystemExit(8)
+PY
+  then
     return 4
   fi
 
-  debug "Validation du modèle PHP : OK"
+  debug "Archive PulseNotes et empreinte SHA-256 vérifiées"
   return 0
+}
+
+extract_release_archive() {
+  local archive="$1"
+  local destination="$2"
+
+  python3 - "$archive" "$destination" <<'PY'
+import pathlib
+import shutil
+import sys
+import zipfile
+
+archive, destination = sys.argv[1:3]
+root = pathlib.Path(destination).resolve()
+root.mkdir(parents=True, exist_ok=True)
+
+with zipfile.ZipFile(archive) as z:
+    for info in z.infolist():
+        raw = info.filename.replace("\\", "/")
+        rel = pathlib.PurePosixPath(raw)
+        if rel.is_absolute() or ".." in rel.parts:
+            raise SystemExit("Chemin ZIP dangereux refusé : " + info.filename)
+        if not rel.parts:
+            continue
+        target = root.joinpath(*rel.parts)
+        resolved = target.resolve()
+        try:
+            resolved.relative_to(root)
+        except ValueError:
+            raise SystemExit("Extraction hors dossier refusée : " + info.filename)
+        if info.is_dir():
+            target.mkdir(parents=True, exist_ok=True)
+            continue
+        target.parent.mkdir(parents=True, exist_ok=True)
+        with z.open(info, "r") as src, open(target, "wb") as dst:
+            shutil.copyfileobj(src, dst)
+PY
+}
+
+write_personal_config() {
+  local config_file="$1"
+  local instance_name="$2"
+  local app_key
+
+  app_key="$(python3 -c 'import secrets; print(secrets.token_hex(32))')"
+  [ -n "$app_key" ] || return 1
+
+  python3 - "$config_file" "$instance_name" "$app_key" <<'PY'
+import sys
+
+path, name, key = sys.argv[1:4]
+def php_single(value: str) -> str:
+    return value.replace("\\", "\\\\").replace("'", "\\'")
+
+content = """<?php
+return [
+    'PULSENOTES_INSTANCE_NAME' => '%s',
+    'PULSENOTES_APP_KEY' => '%s',
+    'PULSENOTES_SQLITE_PATH' => __DIR__ . '/data/pulsenotes.sqlite',
+];
+""" % (php_single(name), php_single(key))
+with open(path, "w", encoding="utf-8", newline="\n") as f:
+    f.write(content)
+PY
+}
+
+validate_status_json() {
+  python3 -c '
+import json
+import sys
+try:
+    obj = json.load(sys.stdin)
+except Exception:
+    raise SystemExit(1)
+raise SystemExit(0 if obj.get("deploymentMode") == "selfhosted" else 1)
+'
 }
 
 configure_php_extensions() {
@@ -1105,7 +1254,10 @@ LOGIN_FILE="$TMP_DIR/login"
 DOMAINS_FILE="$TMP_DIR/domains.json"
 API_FILE="$TMP_DIR/api.json"
 SSL_FILE="$TMP_DIR/ssl.json"
-PHP_TEMPLATE_FILE="$TMP_DIR/app-template.php"
+APP_ARCHIVE_FILE="$TMP_DIR/pulsenotes-personal.zip"
+APP_CHECKSUM_FILE="$TMP_DIR/pulsenotes-personal.zip.sha256"
+PRESERVED_CONFIG_FILE="$TMP_DIR/config.php.preserved"
+PRESERVED_DATA_DIR="$TMP_DIR/data.preserved"
 
 tui_start
 
@@ -1116,33 +1268,36 @@ if [ "$DEMO_MODE" = "1" ]; then
   debug "Sous-domaine : $SUBDOMAIN_NAME"
 fi
 
-debug "URL application : $APP_PHP_URL"
-debug "Fichier PHP final : $APP_PHP_DEST_NAME"
+debug "Release PulseNotes : $APP_RELEASE_URL"
+debug "Empreinte release : $APP_RELEASE_SHA256_URL"
 debug "Serveur cPanel : $CPANEL_ORIGIN"
 
 # -----------------------------------------------------------------------------
-# INSTALLATION NORMALE : le téléchargement est volontairement effectué AVANT
-# la connexion cPanel. Si le serveur de déploiement ou app.php est en panne,
-# l'utilisateur le sait immédiatement et aucune modification cPanel n'est faite.
+# INSTALLATION NORMALE : la release est téléchargée et vérifiée AVANT toute
+# modification cPanel. Une panne GitHub ou une archive invalide ne touche donc
+# pas à l’installation existante.
 # -----------------------------------------------------------------------------
 if [ "$MODE" != "clean" ]; then
-  set_step 1 "Téléchargement de l’application" 5 "Récupération du fichier PHP depuis le serveur de déploiement..."
-  set_status "Téléchargement de $APP_PHP_URL..." 7
+  command -v curl >/dev/null 2>&1 || fatal "curl est requis pour installer PulseNotes."
+  command -v python3 >/dev/null 2>&1 || fatal "python3 est requis pour installer PulseNotes."
 
-  spinner_start "Téléchargement de l’application..."
-  download_app_template
+  set_step 1 "Téléchargement de PulseNotes" 5 "Récupération de la dernière release personnelle depuis GitHub..."
+  set_status "Téléchargement de pulsenotes-personal.zip..." 7
+
+  spinner_start "Téléchargement de la release GitHub..."
+  download_release_archive
   DOWNLOAD_RC=$?
   spinner_stop
   if [ "$DOWNLOAD_RC" -ne 0 ]; then
     case "$DOWNLOAD_RC" in
-      2) fatal "Le fichier téléchargé ne ressemble pas à un fichier PHP." ;;
-      3) fatal "Le modèle PHP ne contient pas {{APP_DISPLAY_NAME}}." ;;
-      4) fatal "Le modèle PHP ne contient pas {{APP_HEALTH_MARKER}}." ;;
-      *) fatal "Impossible de télécharger l’application depuis $APP_PHP_URL." ;;
+      2) fatal "La release a été téléchargée, mais son fichier SHA-256 est introuvable." ;;
+      3) fatal "L’empreinte SHA-256 de la release PulseNotes est invalide." ;;
+      4) fatal "La release GitHub est corrompue ou ne contient pas une installation PulseNotes complète." ;;
+      *) fatal "Impossible de télécharger la release PulseNotes depuis GitHub." ;;
     esac
   fi
 
-  set_status "Application téléchargée et vérifiée." 10
+  set_status "Release PulseNotes téléchargée et vérifiée." 10
 fi
 
 while true; do
@@ -1341,6 +1496,18 @@ if [ "$APP_DIR" != "$HOME/$APP_DIR_NAME" ]; then
   fatal "Le chemin de nettoyage est invalide."
 fi
 
+# Conserve la configuration et la base SQLite d’une installation PulseNotes existante.
+# C’est indispensable pour ne pas changer PULSENOTES_APP_KEY lors d’une réinstallation.
+if [ -f "$APP_DIR/api/config.php" ]; then
+  cp -p "$APP_DIR/api/config.php" "$PRESERVED_CONFIG_FILE"
+  debug "Configuration personnelle existante conservée."
+fi
+if [ -d "$APP_DIR/api/data" ]; then
+  mkdir -p "$PRESERVED_DATA_DIR"
+  cp -a "$APP_DIR/api/data/." "$PRESERVED_DATA_DIR/" 2>/dev/null || true
+  debug "Données SQLite existantes conservées."
+fi
+
 debug "Suppression du dossier : $APP_DIR"
 rm -rf -- "$APP_DIR"
 
@@ -1383,55 +1550,89 @@ else
   set_status "Vérification des extensions PHP terminée sans bloquer l’installation." 65
 fi
 
-set_step 8 "Installation de l’application" 67 "Installation du fichier PHP téléchargé..."
+set_step 8 "Installation de l’application" 67 "Déploiement complet de PulseNotes depuis la release GitHub..."
 
-debug "Source déjà téléchargée : $PHP_TEMPLATE_FILE"
-debug "Destination : $APP_DIR/$APP_PHP_DEST_NAME"
+set_status "Extraction du frontend, de l’API et des fichiers de configuration..." 68
+debug "Archive vérifiée : $APP_ARCHIVE_FILE"
+debug "Destination : $APP_DIR"
 
-python3 -c '
-import html
-import sys
-
-src, dst, display_name, health_marker = sys.argv[1:5]
-
-with open(src, encoding="utf-8") as f:
-    content = f.read()
-
-content = content.replace("{{APP_DISPLAY_NAME}}", html.escape(display_name, quote=True))
-content = content.replace("{{APP_HEALTH_MARKER}}", html.escape(health_marker, quote=True))
-
-with open(dst, "w", encoding="utf-8") as f:
-    f.write(content)
-' "$PHP_TEMPLATE_FILE" "$APP_DIR/$APP_PHP_DEST_NAME" "$APP_DISPLAY_NAME" "$APP_HEALTH_MARKER"
-
-if [ ! -s "$APP_DIR/$APP_PHP_DEST_NAME" ]; then
-  fatal "Le fichier PHP final n’a pas pu être créé."
+if ! extract_release_archive "$APP_ARCHIVE_FILE" "$APP_DIR"; then
+  fatal "Impossible d’extraire la release PulseNotes dans $APP_DIR."
 fi
 
-chmod 644 "$APP_DIR/$APP_PHP_DEST_NAME"
-debug "Application installée dans : $APP_DIR/$APP_PHP_DEST_NAME"
-set_status "Application installée dans le dossier web." 71
+for required_file in \
+  "$APP_DIR/index.html" \
+  "$APP_DIR/.htaccess" \
+  "$APP_DIR/api/index.php" \
+  "$APP_DIR/api/router.php" \
+  "$APP_DIR/api/config.php" \
+  "$APP_DIR/api/.htaccess" \
+  "$APP_DIR/api/update.sh"
+do
+  if [ ! -f "$required_file" ]; then
+    fatal "Installation incomplète : $(basename "$required_file") est absent après extraction."
+  fi
+done
 
-set_step 9 "Vérification HTTP" 73 "Vérification de l’accès au site..."
+# Une réinstallation conserve la clé d’application et la base SQLite existantes.
+if [ -s "$PRESERVED_CONFIG_FILE" ]; then
+  cp -p "$PRESERVED_CONFIG_FILE" "$APP_DIR/api/config.php"
+  debug "Configuration personnelle restaurée."
+else
+  if ! write_personal_config "$APP_DIR/api/config.php" "$APP_DISPLAY_NAME"; then
+    fatal "Impossible de générer la configuration personnelle PulseNotes."
+  fi
+  debug "Nouvelle PULSENOTES_APP_KEY générée de manière aléatoire."
+fi
+
+mkdir -p "$APP_DIR/api/data"
+if [ -d "$PRESERVED_DATA_DIR" ]; then
+  cp -a "$PRESERVED_DATA_DIR/." "$APP_DIR/api/data/" 2>/dev/null || true
+  debug "Base SQLite et données personnelles restaurées."
+fi
+
+# Permissions adaptées à un hébergement cPanel/PHP exécuté sous l’utilisateur.
+find "$APP_DIR" -type d -exec chmod 755 {} +
+find "$APP_DIR" -type f -exec chmod 644 {} +
+chmod 600 "$APP_DIR/api/config.php"
+chmod 700 "$APP_DIR/api/data"
+chmod 700 "$APP_DIR/api/update.sh"
+
+# Validation locale PHP avant d’exposer le site.
+if [ -n "$PHP_SELECTOR_CGI" ] && [ -x "$PHP_SELECTOR_CGI" ]; then
+  if ! "$PHP_SELECTOR_CGI" -l "$APP_DIR/api/index.php" >/dev/null 2>&1; then
+    fatal "Le fichier api/index.php de la release contient une erreur PHP."
+  fi
+  if ! "$PHP_SELECTOR_CGI" -l "$APP_DIR/api/router.php" >/dev/null 2>&1; then
+    fatal "Le fichier api/router.php de la release contient une erreur PHP."
+  fi
+fi
+
+if [ ! -s "$APP_DIR/index.html" ]; then
+  fatal "Le frontend PulseNotes n’a pas été installé correctement."
+fi
+
+set_status "PulseNotes complet est installé dans le dossier web." 71
+set_step 9 "Vérification HTTP" 73 "Vérification de l’API PulseNotes..."
 
 SITE_READY=0
 ATTEMPT=1
 
 while [ "$ATTEMPT" -le 8 ]; do
   PERCENT=$((73 + ATTEMPT))
-  set_status "Test HTTP du site (${ATTEMPT}/8)..." "$PERCENT"
+  set_status "Test de /api/status (${ATTEMPT}/8)..." "$PERCENT"
 
-  spinner_start "Test HTTP ${ATTEMPT}/8..."
-  PAGE="$(curl \
+  spinner_start "Test API HTTP ${ATTEMPT}/8..."
+  STATUS_JSON="$(curl \
     -fsS \
     --connect-timeout 5 \
     --max-time 10 \
-    "${SITE_HTTP_PROTOCOL}://${TARGET_DOMAIN}/" \
+    "${SITE_HTTP_PROTOCOL}://${TARGET_DOMAIN}/api/status" \
     2>/dev/null \
     || true)"
   spinner_stop
 
-  if printf '%s' "$PAGE" | grep -q "$APP_HEALTH_MARKER"; then
+  if [ -n "$STATUS_JSON" ] && printf '%s' "$STATUS_JSON" | validate_status_json; then
     SITE_READY=1
     break
   fi
@@ -1443,11 +1644,10 @@ while [ "$ATTEMPT" -le 8 ]; do
 done
 
 if [ "$SITE_READY" != "1" ]; then
-  fatal "Le domaine a été créé, mais l’application ne répond pas correctement en HTTP."
+  fatal "Le domaine a été créé, mais /api/status ne répond pas comme une installation PulseNotes personnelle."
 fi
 
-set_status "L’application répond correctement en HTTP." 82
-
+set_status "L’API PulseNotes répond correctement en HTTP." 82
 set_step 10 "Recherche du certificat HTTPS" 84 "Recherche d’un certificat existant..."
 
 if [ "$FORCE_NEW_CERT" = "1" ]; then
@@ -1525,13 +1725,14 @@ while [ "$ATTEMPT" -le 5 ]; do
   set_status "Test HTTPS (${ATTEMPT}/5)..." $((97 + ATTEMPT / 2))
 
   spinner_start "Test HTTPS ${ATTEMPT}/5..."
-  if curl \
+  STATUS_JSON="$(curl \
     -fsS \
     --connect-timeout 5 \
     --max-time 10 \
-    "${SITE_HTTPS_PROTOCOL}://${TARGET_DOMAIN}/" \
-    >/dev/null 2>&1
-  then
+    "${SITE_HTTPS_PROTOCOL}://${TARGET_DOMAIN}/api/status" \
+    2>/dev/null \
+    || true)"
+  if [ -n "$STATUS_JSON" ] && printf '%s' "$STATUS_JSON" | validate_status_json; then
     spinner_stop
     HTTPS_OK=1
     break
