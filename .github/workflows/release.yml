@@ -10,6 +10,10 @@ on:
 permissions:
   contents: write
 
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   release:
     runs-on: windows-latest
@@ -44,10 +48,12 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
+          "publish=false" >> $env:GITHUB_OUTPUT
           if ($env:GITHUB_REF -like 'refs/tags/*') {
             "tag=$env:GITHUB_REF_NAME" >> $env:GITHUB_OUTPUT
             "name=$env:GITHUB_REF_NAME" >> $env:GITHUB_OUTPUT
             "prerelease=false" >> $env:GITHUB_OUTPUT
+            "publish=true" >> $env:GITHUB_OUTPUT
           } else {
             $currentVersion = (Get-Content src/package.json -Raw | ConvertFrom-Json).version
             $headers = @{
@@ -68,13 +74,13 @@ jobs:
               "tag=v$currentVersion" >> $env:GITHUB_OUTPUT
               "name=v$currentVersion" >> $env:GITHUB_OUTPUT
               "prerelease=false" >> $env:GITHUB_OUTPUT
+              "publish=true" >> $env:GITHUB_OUTPUT
             } else {
-              "tag=main-$env:GITHUB_RUN_NUMBER" >> $env:GITHUB_OUTPUT
-              "name=Build main $env:GITHUB_RUN_NUMBER" >> $env:GITHUB_OUTPUT
-              "prerelease=true" >> $env:GITHUB_OUTPUT
+              Write-Host "La release stable v$currentVersion existe déjà : tests terminés sans nouvelle publication."
             }
           }
       - name: Publier les archives GitHub
+        if: steps.release_meta.outputs.publish == 'true'
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.release_meta.outputs.tag }}

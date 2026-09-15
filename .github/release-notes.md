@@ -2,6 +2,8 @@
 
 Cette publication contient les paquets prêts à déployer pour les deux éditions de PulseNotes.
 
+La version 0.4.1 stabilise la publication GitHub de la mise à jour automatique et supprime la création de pré-releases lors des pushes sans changement de version.
+
 À partir de la version 0.4.0, PulseNotes vérifie naturellement les releases stables sans cron. L’édition personnelle propose la mise à jour après connexion et l’impose à la déconnexion après quinze jours. L’édition globale installe automatiquement la nouvelle version sous écran de maintenance.
 
 ## Archives
