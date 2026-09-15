@@ -680,12 +680,13 @@ function respondSharePage(string $token): never
     $root = dirname(__DIR__);
     $isDevelopmentRequest = str_contains((string) ($_SERVER['HTTP_HOST'] ?? ''), ':5173');
     $indexCandidates = $isDevelopmentRequest
-        ? [$root . DIRECTORY_SEPARATOR . 'src' . DIRECTORY_SEPARATOR . 'index.html']
-        : [
-            $root . DIRECTORY_SEPARATOR . 'dist' . DIRECTORY_SEPARATOR . 'index.html',
-            $root . DIRECTORY_SEPARATOR . 'src' . DIRECTORY_SEPARATOR . 'dist' . DIRECTORY_SEPARATOR . 'index.html',
-            $root . DIRECTORY_SEPARATOR . 'src' . DIRECTORY_SEPARATOR . 'index.html',
-        ];
+    ? [$root . DIRECTORY_SEPARATOR . 'src' . DIRECTORY_SEPARATOR . 'index.html']
+    : [
+        $root . DIRECTORY_SEPARATOR . 'index.html',
+        $root . DIRECTORY_SEPARATOR . 'dist' . DIRECTORY_SEPARATOR . 'index.html',
+        $root . DIRECTORY_SEPARATOR . 'src' . DIRECTORY_SEPARATOR . 'dist' . DIRECTORY_SEPARATOR . 'index.html',
+        $root . DIRECTORY_SEPARATOR . 'src' . DIRECTORY_SEPARATOR . 'index.html',
+    ];
     $indexPath = array_values(array_filter($indexCandidates, static fn (string $path): bool => is_file($path)))[0] ?? null;
     $html = $indexPath !== null ? file_get_contents($indexPath) : false;
     if (!is_string($html)) throw new RuntimeException('Page de l’application introuvable.');
