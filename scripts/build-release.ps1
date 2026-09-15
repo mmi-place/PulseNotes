@@ -41,8 +41,18 @@ foreach ($target in @('global','personal')) {
     }
     $archive = Join-Path $releaseRoot "pulsenotes-$target.zip"
     Remove-Item -LiteralPath $archive -Force -ErrorAction SilentlyContinue
-    & tar.exe -a -cf $archive -C $destination .
-    if ($LASTEXITCODE -ne 0) { throw "Impossible de créer l’archive $archive." }
+    Compress-Archive -Path (Join-Path $destination '*') -DestinationPath $archive -CompressionLevel Optimal
+    if (-not (Test-Path -LiteralPath $archive)) { throw "Impossible de créer l’archive $archive." }
+    $zipArchive = $null
+    try {
+        $zipArchive = [System.IO.Compression.ZipFile]::OpenRead($archive)
+        $zipEntries = $zipArchive.Entries.Count
+    } catch {
+        throw "L’archive $archive n’est pas un ZIP Windows valide."
+    } finally {
+        if ($zipArchive) { $zipArchive.Dispose() }
+    }
+    if ($zipEntries -lt 1) { throw "L’archive $archive est vide." }
     $hash = Get-Sha256 $archive
     Set-Content -LiteralPath "$archive.sha256" -Value "$hash  $(Split-Path -Leaf $archive)" -Encoding ascii
     Write-Host "Distribution $target : $archive"
